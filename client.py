@@ -62,6 +62,8 @@ def get_client_options(
         env={
             "ELASTIC_CLOUD_ID": os.getenv("ELASTIC_CLOUD_ID", ""),
             "ELASTIC_API_KEY": os.getenv("ELASTIC_API_KEY", ""),
+            "ELASTICSEARCH_URL": os.getenv("ELASTICSEARCH_URL", ""),
+            "KIBANA_URL": os.getenv("KIBANA_URL", ""),
         },
     )
 

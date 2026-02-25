@@ -217,7 +217,7 @@ STAGE_2_EVENTS = [
     },
 ]
 
-# Add C2 beaconing events (every ~60 seconds for 2 hours)
+# Add C2 beaconing events (every ~6 minutes over 2 hours)
 for i in range(20):
     STAGE_2_EVENTS.append({
         "@timestamp": ts(hours=2, minutes=19 + i * 6, seconds=i % 5),

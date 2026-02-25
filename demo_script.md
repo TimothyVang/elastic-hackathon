@@ -14,6 +14,8 @@
 
 > "What if an AI agent could do the first-pass triage automatically?"
 
+**Judges: Notice the scale of the problem — this motivates every design decision that follows.**
+
 ---
 
 ## 0:20 – 0:40 | The Solution: Architecture Overview
@@ -25,6 +27,8 @@
 **[Highlight the 3 indices]**
 
 > "The agent works across three Elasticsearch indices: security alerts with over 100 events, a MITRE ATT&CK-mapped threat intel database, and an incident log where it writes triage reports."
+
+**Judges: Note the five distinct tools (4 ES|QL + 1 hybrid search) and how they chain together in the agent's reasoning loop.**
 
 ---
 
@@ -46,6 +50,8 @@
 
 > "Here's what the raw data looks like in Kibana — can you spot the attack? That's exactly the problem the agent solves."
 
+**Judges: The attack events are intentionally buried in 80+ noise events. This is the needle-in-a-haystack challenge the agent must solve.**
+
 ---
 
 ## 1:20 – 2:40 | Live Agent Triage
@@ -60,17 +66,21 @@
 
 **[Agent executes tools — highlight each step]**
 
-1. > "First, it correlates ALL events from this IP — building a timeline."
-2. > "Then it checks our threat intel database — and immediately finds matches for the C2 server and malware hashes."
-3. > "It runs beaconing detection — and identifies the 60-second callback pattern to the C2 server."
-4. > "Lateral movement detection shows the compromised credentials accessing three different servers."
-5. > "Process chain analysis reveals the kill chain: Excel spawning cmd, spawning PowerShell, leading to credential dumping."
+1. > "First, the **Event Correlation** tool (ES|QL) pulls ALL events from 10.10.15.42 — building a full timeline of activity from this workstation."
+2. > "Next, the **Threat Intel Lookup** tool (hybrid search) cross-references indicators against our MITRE ATT&CK-mapped IOC database — and immediately finds matches for the C2 server and malware hashes."
+3. > "The **Beaconing Detection** tool (ES|QL) analyzes outbound connection patterns — and identifies the 60-second callback interval to the C2 server at 203.0.113.50."
+4. > "The **Lateral Movement Detection** tool (ES|QL) traces SMB connections and credential use — revealing the compromised service account accessing three different servers: SRV-DC01, SRV-FILE01, and SRV-DB01."
+5. > "Finally, the **Process Chain Analysis** tool (ES|QL) reconstructs the execution tree: Excel spawning cmd.exe, spawning PowerShell, leading to LSASS credential dumping."
+
+**Judges: Watch for the multi-tool reasoning chain. The agent decides which tool to call next based on what it learned from the previous tool -- this is not a scripted pipeline.**
 
 **[Show the triage report]**
 
 > "And here's the output — a complete triage report with MITRE ATT&CK mapping across all five kill chain phases, a P1 severity assessment, and specific containment recommendations: isolate the workstation, block the C2 IP, reset the compromised service account, and scan the three lateral movement targets."
 
 **[Highlight: "This took 30 seconds. A human analyst would need 30-45 minutes."]**
+
+**Judges: The triage report maps to real MITRE ATT&CK technique IDs and produces actionable containment steps -- not just a summary.**
 
 ---
 
@@ -84,6 +94,8 @@
 
 > "Thank you."
 
+**Judges: Key takeaway -- the agent amplifies analysts rather than replacing them, turning a 30-minute manual process into 30 seconds of automated first-pass triage.**
+
 **[End card: GitHub repo URL, team info]**
 
 ---
@@ -96,6 +108,7 @@
 - **Kibana theme**: Dark mode for better contrast
 - **Timing**: Practice to hit 2:55-3:00 mark
 - **Key moments to emphasize**:
-  - The 60-second beaconing pattern detection
-  - Multi-tool reasoning chain (agent uses 5 tools in sequence)
-  - The contrast between raw data chaos and structured triage output
+  - The 60-second beaconing pattern detection (Beaconing Detection tool)
+  - Multi-tool reasoning chain — agent autonomously calls all 5 tools: Event Correlation, Threat Intel Lookup, Beaconing Detection, Lateral Movement Detection, Process Chain Analysis
+  - The contrast between raw data chaos (100+ events) and structured triage output
+  - MITRE ATT&CK kill chain mapping across all 5 attack stages

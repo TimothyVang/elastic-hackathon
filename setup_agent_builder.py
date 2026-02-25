@@ -110,7 +110,7 @@ ESQL_TOOLS = [
         "description": (
             "Detect potential C2 beaconing by identifying outbound connections with regular intervals "
             "to the same destination IP. Calculates connection frequency and looks for periodic patterns. "
-            "Beaconing typically shows consistent intervals (e.g., every 60 seconds)."
+            "Beaconing typically shows consistent intervals (e.g., every few minutes)."
         ),
         "esql_query": """FROM security-alerts
 | WHERE event.category == "network"
@@ -120,7 +120,7 @@ ESQL_TOOLS = [
 | WHERE beacon_count >= 5
 | EVAL duration_minutes = DATE_DIFF("minutes", first_seen, last_seen)
 | EVAL avg_interval_seconds = CASE(beacon_count > 1, duration_minutes * 60.0 / (beacon_count - 1), 0)
-| WHERE avg_interval_seconds > 0 AND avg_interval_seconds < 300
+| WHERE avg_interval_seconds > 0 AND avg_interval_seconds < 600
 | SORT beacon_count DESC
 | LIMIT 20""",
         "parameters": [],
@@ -369,9 +369,15 @@ def setup_agent_builder() -> None:
     console.print(f"\n[bold cyan]Creating DCO Triage Agent (wired to {len(tool_ids)} tools)...[/]")
     agent_result = create_agent(kibana_url, headers, AGENT_DEFINITION, tool_ids)
 
+    # Check if any tools were created
+    if not tool_ids:
+        console.print("\n[bold red]ERROR: No tools were created successfully. Agent creation skipped.[/]")
+        console.print("[dim]Check your Kibana URL and API key, and verify the Agent Builder API is available.[/]")
+        sys.exit(1)
+
     # Summary
     console.print(f"\n[bold green]Agent Builder setup complete.[/]")
-    console.print(f"  ES|QL tools: {len(ESQL_TOOLS)}")
+    console.print(f"  ES|QL tools created: {sum(1 for t in ESQL_TOOLS if any(tid != t['name'] for tid in tool_ids[:len(ESQL_TOOLS)]))}/{len(ESQL_TOOLS)}")
     console.print(f"  Search tools: 1")
     console.print(f"  Agents: 1")
     console.print(f"  Total tool IDs wired: {len(tool_ids)}")

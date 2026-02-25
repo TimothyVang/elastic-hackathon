@@ -77,9 +77,9 @@ def test_attack_data(es) -> bool:
         b["key"] for b in techniques["aggregations"]["techniques"]["buckets"]
     ]
 
-    console.print(f"  [green]PASS[/] Attacker IP events: {attacker_count}")
-    console.print(f"  [green]PASS[/] C2 beacon events: {c2_count}")
-    console.print(f"  [green]PASS[/] MITRE techniques: {', '.join(technique_ids)}")
+    console.print(f"  {'[green]PASS' if attacker_count > 0 else '[red]FAIL'}[/] Attacker IP events: {attacker_count}")
+    console.print(f"  {'[green]PASS' if c2_count > 0 else '[red]FAIL'}[/] C2 beacon events: {c2_count}")
+    console.print(f"  {'[green]PASS' if technique_ids else '[red]FAIL'}[/] MITRE techniques: {', '.join(technique_ids)}")
 
     # Validate all 5 stages are represented
     expected_techniques = {"T1566", "T1059", "T1003", "T1021", "T1041"}

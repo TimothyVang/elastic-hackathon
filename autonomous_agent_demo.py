@@ -113,7 +113,8 @@ async def main() -> None:
         )
     )
 
-    tracker = ProgressTracker()
+    tracker_path = project_dir / "task_tracker.json"
+    tracker = ProgressTracker(tracker_path)
 
     # ── Session 1: Initializer ──────────────────────────────────────
     if not args.skip_init and not is_initialized(project_dir):
@@ -148,6 +149,9 @@ async def main() -> None:
         )
 
         console.print(f"\n[bold green]✓ Builder iteration {iteration} complete[/]")
+
+        # Reload tracker from disk (builder agent writes to it)
+        tracker.load(tracker_path)
 
         # Check if all tasks are done
         if tracker.all_tasks_complete():
