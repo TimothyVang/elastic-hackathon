@@ -25,10 +25,7 @@ console = Console()
 
 INDICES: dict[str, dict] = {
     "security-alerts": {
-        "settings": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0,
-        },
+        "settings": {},
         "mappings": {
             "properties": {
                 # ECS base fields
@@ -214,10 +211,7 @@ INDICES: dict[str, dict] = {
     },
 
     "threat-intel": {
-        "settings": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0,
-        },
+        "settings": {},
         "mappings": {
             "properties": {
                 "@timestamp": {"type": "date"},
@@ -263,10 +257,7 @@ INDICES: dict[str, dict] = {
     },
 
     "incident-log": {
-        "settings": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0,
-        },
+        "settings": {},
         "mappings": {
             "properties": {
                 "@timestamp": {"type": "date"},
