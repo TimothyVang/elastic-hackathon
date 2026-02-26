@@ -12,7 +12,7 @@ export default function CorrelatedTimeline({
 }) {
   if (events.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-muted/50">
         No correlated events found
       </div>
     );
@@ -23,16 +23,16 @@ export default function CorrelatedTimeline({
       {events.map((evt, i) => (
         <div
           key={i}
-          className="bg-surface-raised border border-border-subtle rounded-lg p-4 flex gap-4"
+          className="bg-base-dark/30 border border-divider p-4 flex gap-4"
         >
           {/* Timestamp column */}
-          <div className="shrink-0 w-36 text-xs text-gray-500 font-mono pt-0.5">
+          <div className="shrink-0 w-36 text-xs text-muted/60 font-medium pt-0.5">
             {safeFormat(evt["@timestamp"])}
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-200 mb-2">{evt.message || "—"}</p>
+            <p className="text-sm text-primary/80 mb-2">{evt.message || "—"}</p>
             <div className="flex flex-wrap gap-2 text-xs">
               <SeverityBadge severity={evt["alert.severity"]} />
               <MitreBadge

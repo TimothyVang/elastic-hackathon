@@ -64,15 +64,22 @@ export default function ChatPage() {
     if (!msg || loading) return;
 
     const userMsg: Message = { role: "user", content: msg, timestamp: new Date() };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setLoading(true);
 
     try {
+      // Send conversation history for multi-turn context
+      const history = updatedMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ messages: history }),
       });
 
       const data = await res.json();

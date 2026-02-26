@@ -106,3 +106,70 @@ Configured via `.env` (gitignored). See `.env.example` for the template. Critica
 - `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` — for the autonomous harness
 
 **WARNING**: `.env` line 1 may contain a real GitHub PAT. Never use `git add -A` or `git add .env`.
+
+
+Here are all the Agent Builder documentation URLs:
+
+**Main & Getting Started**
+- Agent Builder Overview: https://www.elastic.co/docs/explore-analyze/ai-features/elastic-agent-builder
+- Get Started: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/get-started
+
+**Core Concepts**
+- Agents: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/agent-builder-agents
+- Custom Agents: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/custom-agents
+- Built-in Agents Reference: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/builtin-agents-reference
+- Tools: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/tools
+- Custom Tools: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/tools/custom-tools
+- Built-in Tools Reference: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/tools/builtin-tools-reference
+- Chat: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/chat
+
+**Models & Configuration**
+- Model Selection: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/models
+
+**Integrations & APIs**
+- Programmatic Access: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/programmatic-access
+- Kibana APIs: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/kibana-api
+- MCP Server: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/mcp-server
+- A2A Server: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/a2a-server
+- MCP Tools (External): https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/tools/mcp-tools
+- Agents & Workflows: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/agents-and-workflows
+
+**Operations**
+- Permissions & Access Control: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/permissions
+- Monitor Token Usage: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/monitor-usage
+- Troubleshooting: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/troubleshooting
+- Limitations & Known Issues: https://www.elastic.co/docs/explore-analyze/ai-features/agent-builder/limitations-known-issues
+
+**Related**
+- Elastic Workflows: https://www.elastic.co/docs/explore-analyze/workflows
+- Configure LLM Connectors: https://www.elastic.co/docs/explore-analyze/ai-features/llm-guides/llm-connectors
+
+Here's a full breakdown of the hackathon rules and how to use Agent Builder:
+Hackathon Overview
+The Elasticsearch Agent Builder Hackathon asks you to build a multi-step AI agent that uses Elastic Agent Builder, combining a reasoning model with one or more of its built-in tools (Elastic Workflows, Search, or ES|QL) to automate real-world tasks. The total prize pool is $20,000.
+Deadline: February 27, 2026 at 1:00 PM EST — so you have about 2 days left.
+Winners announced: Around March 16, 2026.
+What You Must Build
+Your project must use a custom agent and custom tool within Elastic Agent Builder, work with data in Elasticsearch, and automate a clear business task or productivity improvement. It can be brand new or a significant update to an existing project.
+What You Must Submit
+A ~400-word description covering the problem solved, features used, and 2–3 things you liked or challenges you had. A ~3-minute demo video uploaded to YouTube/Vimeo (judges won't watch past 3 minutes). A public open-source code repository with an OSI-approved license containing all source code, agent instructions, custom queries, and workflows. For bonus points, share your project on social media and tag @elastic_devs or @elastic on X, then include the link in your submission.
+Judging Criteria
+Technical Execution (30%) — quality of code, use of Agent Builder and Elasticsearch. Potential Impact & Wow Factor (30%) — significance of the problem, novelty, usefulness. Demo Quality (30%) — clear problem definition, effective presentation, documentation or architecture diagram. Social (10%) — verified social media post about your project.
+Prizes
+1st place: $10,000 + Elastic blog feature. 2nd place: $5,000 + blog feature. 3rd place: $3,000 + blog feature. 4 Creative Awards: $500 each + blog features.
+How Agent Builder Works
+Agent Builder has three core components:
+Agents are LLM-powered entities with custom instructions and assigned tools. They translate natural language into actions. There are built-in agents you can use immediately, or you can create custom ones with tailored instructions for your use case.
+Tools are modular functions that agents call to search, retrieve, and manipulate Elasticsearch data. Built-in tools include Search, ES|QL, and Elastic Workflows. You can also create custom tools or import external ones via MCP (Model Context Protocol).
+Agent Chat is the real-time UI for talking to agents in natural language. You can also interact programmatically via REST APIs.
+Key capabilities for your hackathon project: You can import tools from external MCP servers, expose your agents to external systems (Claude Desktop, Cursor, LangChain) via the MCP server and A2A server, trigger Elastic Workflows for automation, and use the Kibana REST APIs for programmatic control.
+Recommended Approach for the Hackathon
+
+Go to "Agents" in your Kibana sidebar (your project is already set up)
+Explore the built-in agents and tools to understand what's available
+Ingest some data into Elasticsearch (use sample data, synthetic data, or your own)
+Create a custom agent with specific instructions for your use case
+Create custom tools that query your data
+Build out your automation workflow
+Record your 3-minute demo and push code to a public repo
+Would you like me to navigate to the Agents section in your Kibana instance so you can start building?

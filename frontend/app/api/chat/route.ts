@@ -1,307 +1,436 @@
 import { NextRequest, NextResponse } from "next/server";
+import Groq from "groq-sdk";
 import { getESClient } from "@/lib/elasticsearch";
 import { ESQL_QUERIES } from "@/lib/queries";
 import { esqlToRows } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-/**
- * Smart triage chat endpoint.
- *
- * 1. Tries Kibana Agent Builder chat API if configured.
- * 2. Falls back to local triage using the SAME ES|QL tools as the Agent Builder agent.
- *
- * This ensures the dashboard demonstrates real Elastic Agent Builder tool usage
- * regardless of whether the Kibana chat API is available.
- */
+// ---------------------------------------------------------------------------
+// System prompt — same 6-step reasoning chain as the Elastic Agent Builder agent
+// ---------------------------------------------------------------------------
+const SYSTEM_PROMPT = `You are the DCO Threat Triage Agent — an expert security analyst powered by Elastic Agent Builder tools. You investigate security alerts by querying Elasticsearch with ES|QL and cross-referencing threat intelligence.
 
-// Analyze message to determine which Agent Builder tools to invoke
-function analyzeMessage(msg: string): {
-  tools: string[];
-  ip?: string;
-  hostname?: string;
-} {
-  const lower = msg.toLowerCase();
-  const tools: string[] = [];
+## Your Tools
+You have 5 tools that query a live Elasticsearch cluster:
+1. **correlated_events_by_ip** — Timeline of all events from a source IP (24h window)
+2. **lateral_movement_detection** — Detect accounts authenticating to multiple hosts
+3. **beaconing_detection** — Find periodic outbound connections (C2 beaconing patterns)
+4. **process_chain_analysis** — Parent-child process trees on a specific host
+5. **threat_intel_lookup** — Search MITRE ATT&CK-mapped IOCs in the threat-intel index
 
-  const ipMatch = msg.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
-  const ip = ipMatch ? ipMatch[1] : undefined;
+## Investigation Protocol
+Follow this 6-step reasoning chain:
+1. **Correlate** — Gather related events using correlated_events_by_ip
+2. **Enrich** — Cross-reference with threat_intel_lookup for known IOCs
+3. **Detect Patterns** — Check for beaconing (C2) and lateral movement
+4. **Forensic Analysis** — Examine process chains on suspicious hosts
+5. **Severity Scoring** — Assess risk: Critical/High/Medium/Low
+6. **Report** — Provide actionable triage with MITRE ATT&CK mapping
 
-  const hostMatch = msg.match(/\b(WS-\w+|SRV-\w+|DC-\d+)\b/i);
-  const hostname = hostMatch ? hostMatch[1] : undefined;
+## Key Context
+- Attacker IP: 10.10.15.42 (host WS-PC0142)
+- C2 server: 198.51.100.23 (external)
+- Victim hosts: DC-01, SRV-FILE01, SRV-DB01, SRV-WEB01
+- Attack chain: T1566 (phishing) → T1059+T1071 (execution+C2) → T1003 (credential dumping) → T1021 (lateral movement) → T1560+T1041 (exfiltration)
 
-  // Full triage request → run all tools
-  if (
-    lower.includes("triage") ||
-    lower.includes("investigate") ||
-    (lower.includes("analyze") && lower.includes("alert"))
-  ) {
-    return {
-      tools: ["correlate", "beaconing", "lateral", "process", "intel"],
-      ip: ip || "10.10.15.42",
-      hostname: hostname || "WS-PC0142",
-    };
-  }
+## Response Style
+- Be conversational but precise. Explain findings like a senior SOC analyst briefing the team.
+- Use markdown formatting with headers, bold, and bullet points.
+- Always cite which tools you used and what data you found.
+- When you find something suspicious, explain the MITRE ATT&CK context.
+- If a query returns no results, say so and explain what that means.
+- Keep responses focused and actionable — this is a real-time triage, not a research paper.`;
 
-  if (ip) tools.push("correlate");
-  if (lower.includes("beacon") || lower.includes("c2") || lower.includes("command and control"))
-    tools.push("beaconing");
-  if (lower.includes("lateral") || lower.includes("movement")) tools.push("lateral");
-  if (hostname || lower.includes("process") || lower.includes("chain"))
-    tools.push("process");
-  if (lower.includes("threat") || lower.includes("intel") || lower.includes("ioc"))
-    tools.push("intel");
+// ---------------------------------------------------------------------------
+// Tool definitions (OpenAI-compatible function calling schema)
+// ---------------------------------------------------------------------------
+const TOOLS: Groq.Chat.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "correlated_events_by_ip",
+      description:
+        "Query correlated security events for a specific source IP address within the last 24 hours. Returns timeline of alerts, network events, and process events sorted chronologically.",
+      parameters: {
+        type: "object",
+        properties: {
+          source_ip: {
+            type: "string",
+            description: "The source IP address to investigate (e.g. 10.10.15.42)",
+          },
+        },
+        required: ["source_ip"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "lateral_movement_detection",
+      description:
+        "Detect lateral movement by finding user accounts that have successfully authenticated to multiple distinct hosts within 24 hours. Indicates potential compromised credentials being used to pivot across the network.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "beaconing_detection",
+      description:
+        "Detect C2 beaconing by finding outbound network connections with periodic intervals (average interval under 600 seconds). Identifies potential command-and-control communication channels.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "process_chain_analysis",
+      description:
+        "Analyze process execution chains on a specific host. Shows parent-child process relationships, command lines, and MITRE ATT&CK technique mappings to identify suspicious execution patterns.",
+      parameters: {
+        type: "object",
+        properties: {
+          hostname: {
+            type: "string",
+            description: "The hostname to analyze (e.g. WS-PC0142, DC-01, SRV-FILE01)",
+          },
+        },
+        required: ["hostname"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "threat_intel_lookup",
+      description:
+        "Search the threat intelligence database for indicators of compromise (IOCs). Searches across indicator values, descriptions, and MITRE technique IDs. Use this to check if an IP, domain, hash, or technique is a known threat.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Search query — can be an IP address, domain, file hash, MITRE technique ID, or keyword (e.g. '198.51.100.23', 'T1059', 'powershell')",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+];
 
-  // Default: full triage
-  if (tools.length === 0) {
-    return {
-      tools: ["correlate", "beaconing", "lateral", "process", "intel"],
-      ip: ip || "10.10.15.42",
-      hostname: hostname || "WS-PC0142",
-    };
-  }
-
-  return { tools, ip, hostname };
-}
-
-// Run ES|QL tools and format results
-async function runLocalTriage(
-  tools: string[],
-  ip?: string,
-  hostname?: string
-): Promise<{ response: string; toolsUsed: string[] }> {
+// ---------------------------------------------------------------------------
+// Tool execution — runs the actual ES|QL / search queries
+// ---------------------------------------------------------------------------
+async function executeTool(
+  name: string,
+  args: Record<string, string>
+): Promise<string> {
   const es = getESClient();
-  const toolsUsed: string[] = [];
-  const sections: string[] = [];
 
-  sections.push("## DCO Triage Report\n");
-
-  // Tool: Correlated Events by IP
-  if (tools.includes("correlate") && ip) {
-    try {
-      const resp = await es.esql.query({
-        query: ESQL_QUERIES.correlated_events_by_ip,
-        params: [{ source_ip: ip }],
-        format: "json",
-      });
-      const rows = esqlToRows(resp.columns, resp.values);
-      toolsUsed.push("correlated_events_by_ip");
-
-      if (rows.length > 0) {
-        sections.push(`### Correlated Events for ${ip}\n`);
-        sections.push(`Found **${rows.length} events** in 24h window.\n`);
-        sections.push(
-          "| Time | Message | Severity | MITRE | Host |\n|------|---------|----------|-------|------|"
-        );
-        rows.slice(0, 15).forEach((r) => {
-          const ts = r["@timestamp"]
-            ? new Date(r["@timestamp"] as string).toLocaleTimeString()
-            : "-";
-          sections.push(
-            `| ${ts} | ${(r.message as string || "-").substring(0, 60)} | ${r["alert.severity"] || "-"} | ${r["threat.technique.id"] || "-"} | ${r["host.name"] || "-"} |`
-          );
+  try {
+    switch (name) {
+      case "correlated_events_by_ip": {
+        const ip = args.source_ip || "10.10.15.42";
+        const resp = await es.esql.query({
+          query: ESQL_QUERIES.correlated_events_by_ip,
+          params: [{ source_ip: ip }],
+          format: "json",
         });
-        sections.push("");
-      }
-    } catch (e) {
-      sections.push(`> Correlate tool error: ${e instanceof Error ? e.message : "unknown"}\n`);
-    }
-  }
-
-  // Tool: Beaconing Detection
-  if (tools.includes("beaconing")) {
-    try {
-      const resp = await es.esql.query({
-        query: ESQL_QUERIES.beaconing_detection,
-        format: "json",
-      });
-      const rows = esqlToRows(resp.columns, resp.values);
-      toolsUsed.push("beaconing_detection");
-
-      if (rows.length > 0) {
-        sections.push("### Beaconing / C2 Detection\n");
-        sections.push(
-          "| Dest IP | Domain | Source IP | Beacons | Avg Interval |\n|---------|--------|----------|---------|--------------|"
-        );
-        rows.forEach((r) => {
-          sections.push(
-            `| ${r["destination.ip"] || "-"} | ${r["destination.domain"] || "-"} | ${r["source.ip"] || "-"} | ${r.beacon_count || "-"} | ${Math.round(Number(r.avg_interval_seconds) || 0)}s |`
-          );
+        const rows = esqlToRows(resp.columns, resp.values);
+        if (rows.length === 0) return `No events found for source IP ${ip} in the last 24 hours.`;
+        return JSON.stringify({
+          total_events: rows.length,
+          events: rows.slice(0, 30).map((r) => ({
+            timestamp: r["@timestamp"],
+            message: r.message,
+            severity: r["alert.severity"] || r["event.severity"],
+            mitre_technique: r["threat.technique.id"],
+            mitre_name: r["threat.technique.name"],
+            host: r["host.name"],
+            dest_ip: r["destination.ip"],
+            user: r["user.name"],
+            process: r["process.name"],
+            category: r["event.category"],
+            action: r["event.action"],
+          })),
         });
-        sections.push("");
-      } else {
-        sections.push("### Beaconing Detection\nNo C2 beaconing patterns detected.\n");
       }
-    } catch (e) {
-      sections.push(`> Beaconing tool error: ${e instanceof Error ? e.message : "unknown"}\n`);
-    }
-  }
 
-  // Tool: Lateral Movement
-  if (tools.includes("lateral")) {
-    try {
-      const resp = await es.esql.query({
-        query: ESQL_QUERIES.lateral_movement_detection,
-        format: "json",
-      });
-      const rows = esqlToRows(resp.columns, resp.values);
-      toolsUsed.push("lateral_movement_detection");
-
-      if (rows.length > 0) {
-        sections.push("### Lateral Movement\n");
-        sections.push(
-          "| Source IP | User | Host Count | Hosts |\n|----------|------|------------|-------|"
-        );
-        rows.forEach((r) => {
-          const hosts = Array.isArray(r.hosts) ? (r.hosts as string[]).join(", ") : String(r.hosts || "-");
-          sections.push(
-            `| ${r["source.ip"] || "-"} | ${r["user.name"] || "-"} | **${r.host_count || "-"}** | ${hosts} |`
-          );
+      case "lateral_movement_detection": {
+        const resp = await es.esql.query({
+          query: ESQL_QUERIES.lateral_movement_detection,
+          format: "json",
         });
-        sections.push("");
-      } else {
-        sections.push("### Lateral Movement\nNo lateral movement patterns detected.\n");
-      }
-    } catch (e) {
-      sections.push(`> Lateral movement tool error: ${e instanceof Error ? e.message : "unknown"}\n`);
-    }
-  }
-
-  // Tool: Process Chain Analysis
-  if (tools.includes("process") && hostname) {
-    try {
-      const resp = await es.esql.query({
-        query: ESQL_QUERIES.process_chain_analysis,
-        params: [{ hostname }],
-        format: "json",
-      });
-      const rows = esqlToRows(resp.columns, resp.values);
-      toolsUsed.push("process_chain_analysis");
-
-      if (rows.length > 0) {
-        sections.push(`### Process Chain on ${hostname}\n`);
-        sections.push(
-          "| Time | Process | PID | Command | MITRE |\n|------|---------|-----|---------|-------|"
-        );
-        rows.slice(0, 10).forEach((r) => {
-          const ts = r["@timestamp"]
-            ? new Date(r["@timestamp"] as string).toLocaleTimeString()
-            : "-";
-          const cmd = ((r["process.command_line"] as string) || "-").substring(0, 40);
-          sections.push(
-            `| ${ts} | ${r["process.name"] || "-"} | ${r["process.pid"] || "-"} | ${cmd} | ${r["threat.technique.id"] || "-"} |`
-          );
+        const rows = esqlToRows(resp.columns, resp.values);
+        if (rows.length === 0) return "No lateral movement detected — no accounts authenticated to multiple hosts in 24 hours.";
+        return JSON.stringify({
+          accounts_with_lateral_movement: rows.length,
+          results: rows.map((r) => ({
+            source_ip: r["source.ip"],
+            user: r["user.name"],
+            host_count: r.host_count,
+            hosts: r.hosts,
+            first_seen: r.first_seen,
+            last_seen: r.last_seen,
+          })),
         });
-        sections.push("");
       }
-    } catch (e) {
-      sections.push(`> Process chain tool error: ${e instanceof Error ? e.message : "unknown"}\n`);
-    }
-  }
 
-  // Tool: Threat Intel Lookup
-  if (tools.includes("intel")) {
-    try {
-      const searchValue = ip || "";
-      const resp = await es.search({
-        index: "threat-intel",
-        size: 10,
-        query: searchValue
-          ? {
-              multi_match: {
-                query: searchValue,
-                fields: ["indicator.value", "description", "threat.technique.id"],
-              },
-            }
-          : { match_all: {} },
-      });
-      toolsUsed.push("threat_intel_lookup");
-
-      const hits = resp.hits?.hits || [];
-      if (hits.length > 0) {
-        sections.push("### Threat Intel Matches\n");
-        sections.push(
-          "| Type | Value | Description | MITRE | Confidence |\n|------|-------|-------------|-------|------------|"
-        );
-        hits.slice(0, 8).forEach((h) => {
-          const s = h._source as Record<string, unknown> || {};
-          const indicator = (s.indicator || {}) as Record<string, unknown>;
-          const threat = (s.threat || {}) as Record<string, unknown>;
-          const technique = (threat.technique || {}) as Record<string, unknown>;
-          sections.push(
-            `| ${indicator.type || "-"} | ${((indicator.value as string) || "-").substring(0, 30)} | ${((s.description as string) || "-").substring(0, 40)} | ${technique.id || "-"} | ${indicator.confidence || "-"}% |`
-          );
+      case "beaconing_detection": {
+        const resp = await es.esql.query({
+          query: ESQL_QUERIES.beaconing_detection,
+          format: "json",
         });
-        sections.push("");
+        const rows = esqlToRows(resp.columns, resp.values);
+        if (rows.length === 0) return "No C2 beaconing patterns detected in the last 24 hours.";
+        return JSON.stringify({
+          beaconing_sources: rows.length,
+          results: rows.map((r) => ({
+            destination_ip: r["destination.ip"],
+            destination_domain: r["destination.domain"],
+            source_ip: r["source.ip"],
+            beacon_count: r.beacon_count,
+            avg_interval_seconds: Math.round(Number(r.avg_interval_seconds) || 0),
+            total_bytes: r.total_bytes,
+            first_seen: r.first_seen,
+            last_seen: r.last_seen,
+          })),
+        });
       }
-    } catch (e) {
-      sections.push(`> Threat intel tool error: ${e instanceof Error ? e.message : "unknown"}\n`);
+
+      case "process_chain_analysis": {
+        const hostname = args.hostname || "WS-PC0142";
+        const resp = await es.esql.query({
+          query: ESQL_QUERIES.process_chain_analysis,
+          params: [{ hostname }],
+          format: "json",
+        });
+        const rows = esqlToRows(resp.columns, resp.values);
+        if (rows.length === 0) return `No process events found on host ${hostname} in the last 24 hours.`;
+        return JSON.stringify({
+          host: hostname,
+          total_processes: rows.length,
+          processes: rows.slice(0, 25).map((r) => ({
+            timestamp: r["@timestamp"],
+            process: r["process.name"],
+            pid: r["process.pid"],
+            command_line: r["process.command_line"],
+            parent_process: r["process.parent.name"],
+            parent_pid: r["process.parent.pid"],
+            user: r["user.name"],
+            action: r["event.action"],
+            mitre_technique: r["threat.technique.id"],
+            severity: r["alert.severity"],
+          })),
+        });
+      }
+
+      case "threat_intel_lookup": {
+        const query = args.query || "";
+        const resp = await es.search({
+          index: "threat-intel",
+          size: 10,
+          query: query
+            ? {
+                multi_match: {
+                  query,
+                  fields: [
+                    "indicator.value",
+                    "description",
+                    "threat.technique.id",
+                    "threat.technique.name",
+                    "indicator.type",
+                  ],
+                },
+              }
+            : { match_all: {} },
+        });
+        const hits = resp.hits?.hits || [];
+        if (hits.length === 0) return `No threat intelligence matches found for "${query}".`;
+        return JSON.stringify({
+          matches: hits.length,
+          iocs: hits.map((h) => {
+            const s = (h._source || {}) as Record<string, unknown>;
+            const indicator = (s.indicator || {}) as Record<string, unknown>;
+            const threat = (s.threat || {}) as Record<string, unknown>;
+            const technique = (threat.technique || {}) as Record<string, unknown>;
+            return {
+              type: indicator.type,
+              value: indicator.value,
+              description: s.description,
+              mitre_technique: technique.id,
+              mitre_name: technique.name,
+              confidence: indicator.confidence,
+              severity: indicator.severity,
+            };
+          }),
+        });
+      }
+
+      default:
+        return `Unknown tool: ${name}`;
     }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Tool execution error (${name}): ${msg}`;
   }
-
-  // Summary
-  sections.push("---");
-  sections.push(
-    `**Agent Builder Tools Used:** ${toolsUsed.join(", ")} (${toolsUsed.length}/5 tools)`
-  );
-
-  return { response: sections.join("\n"), toolsUsed };
 }
 
+// ---------------------------------------------------------------------------
+// Groq client — lazy-initialized
+// ---------------------------------------------------------------------------
+let groqClient: Groq | null = null;
+
+function getGroqClient(): Groq {
+  if (groqClient) return groqClient;
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY not configured. Get a free key at https://console.groq.com");
+  }
+  groqClient = new Groq({ apiKey });
+  return groqClient;
+}
+
+// ---------------------------------------------------------------------------
+// Message type for conversation history
+// ---------------------------------------------------------------------------
+interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  tool_calls?: Groq.Chat.ChatCompletionMessageToolCall[];
+  tool_call_id?: string;
+}
+
+// ---------------------------------------------------------------------------
+// POST handler — agentic tool use loop
+// ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
-    const { message } = await req.json();
+    const body = await req.json();
 
-    // Ping check
-    if (message === "__ping__") {
+    // Ping check (health probe from chat UI)
+    if (body.message === "__ping__") {
       try {
         getESClient();
-        return NextResponse.json({ status: "ok" });
+        const hasGroq = !!process.env.GROQ_API_KEY;
+        return NextResponse.json({ status: "ok", ai: hasGroq });
       } catch {
         return NextResponse.json({ error: "ES not configured" }, { status: 503 });
       }
     }
 
-    // Try Kibana Agent Builder chat API first
-    const kibanaUrl = process.env.KIBANA_URL;
-    const apiKey = process.env.ELASTIC_API_KEY;
-    const agentId = process.env.AGENT_BUILDER_AGENT_ID;
+    // Build conversation history
+    const messages: ChatMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
 
-    if (kibanaUrl && apiKey && agentId) {
-      try {
-        const response = await fetch(
-          `${kibanaUrl}/api/agent_builder/agents/${agentId}/chat`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `ApiKey ${apiKey}`,
-              "kbn-xsrf": "true",
-            },
-            body: JSON.stringify({ message }),
-            signal: AbortSignal.timeout(15000),
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          return NextResponse.json({
-            response: data.response || data.message || JSON.stringify(data),
-            toolsUsed: ["kibana_agent_builder"],
-          });
+    // If frontend sends conversation history, include it
+    if (Array.isArray(body.messages)) {
+      for (const m of body.messages) {
+        if (m.role === "user" || m.role === "assistant") {
+          messages.push({ role: m.role, content: m.content });
         }
-      } catch {
-        // Agent Builder API unavailable — fall through to local triage
+      }
+    } else if (body.message) {
+      // Backwards-compatible single message mode
+      messages.push({ role: "user", content: body.message });
+    }
+
+    const groq = getGroqClient();
+    const toolsUsed: string[] = [];
+    const MAX_TOOL_ROUNDS = 8;
+    const historyLength = messages.length; // Track where history ends and new messages begin
+
+    // Agentic tool use loop
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: messages as Groq.Chat.ChatCompletionMessageParam[],
+        tools: TOOLS,
+        tool_choice: "auto",
+        temperature: 0.3,
+        max_tokens: 4096,
+      });
+
+      const choice = completion.choices[0];
+      if (!choice) {
+        return NextResponse.json({
+          response: "No response generated. Please try again.",
+          toolsUsed,
+        });
+      }
+
+      const assistantMessage = choice.message;
+
+      // Add assistant message to history (for multi-round tool use)
+      messages.push({
+        role: "assistant",
+        content: assistantMessage.content || "",
+        tool_calls: assistantMessage.tool_calls,
+      });
+
+      // If no tool calls, we have our final response
+      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+        return NextResponse.json({
+          response: assistantMessage.content || "No response generated.",
+          toolsUsed,
+        });
+      }
+
+      // Execute each tool call and feed results back
+      for (const toolCall of assistantMessage.tool_calls) {
+        const fnName = toolCall.function.name;
+        let fnArgs: Record<string, string> = {};
+        try {
+          fnArgs = JSON.parse(toolCall.function.arguments || "{}");
+        } catch {
+          fnArgs = {};
+        }
+
+        if (!toolsUsed.includes(fnName)) {
+          toolsUsed.push(fnName);
+        }
+
+        const result = await executeTool(fnName, fnArgs);
+
+        messages.push({
+          role: "tool",
+          content: result,
+          tool_call_id: toolCall.id,
+        });
       }
     }
 
-    // Fall back to local triage using the same ES|QL tools
-    const { tools, ip, hostname } = analyzeMessage(message);
-    const result = await runLocalTriage(tools, ip, hostname);
+    // If we exhausted all rounds, return the last NEW assistant message (not from history)
+    const newMessages = messages.slice(historyLength);
+    const lastAssistant = newMessages
+      .filter((m) => m.role === "assistant" && m.content)
+      .pop();
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      response:
+        lastAssistant?.content ||
+        "Analysis complete. The agent used multiple tools but reached the processing limit. Please ask a more specific follow-up question.",
+      toolsUsed,
+    });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
+
+    // Provide a helpful message for common errors
+    if (errorMsg.includes("GROQ_API_KEY")) {
+      return NextResponse.json({ error: errorMsg }, { status: 500 });
+    }
+
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

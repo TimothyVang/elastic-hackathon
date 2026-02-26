@@ -186,7 +186,7 @@ WORKFLOW_TOOL = {
         "in the incident-log index, assigns severity, and generates containment recommendations. "
         "Use this after completing your analysis to formally document the triage results."
     ),
-    "workflow_id": "incident_triage",
+    "workflow_id": "workflow-d576883d-4b80-4722-8ab6-41770d6a1cd3",
 }
 
 # ── Agent Definition ──────────────────────────────────────────────────

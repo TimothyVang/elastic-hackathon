@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SeverityBadge from "@/components/ui/SeverityBadge";
-import { TableSkeleton } from "@/components/ui/Skeleton";
 import { esqlToRows } from "@/lib/utils";
 import type { LateralMovementResult } from "@/lib/types";
 
@@ -13,120 +11,64 @@ export default function LateralPage() {
 
   useEffect(() => {
     fetch("/api/hunt/lateral")
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => {
-        const rows = esqlToRows(d.columns, d.values);
-        setData(rows as unknown as LateralMovementResult[]);
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => setData(esqlToRows(d.columns, d.values) as unknown as LateralMovementResult[]))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-white">
-          Lateral Movement Detection
+        <h1 className="font-display font-bold text-[clamp(1.5rem,4vw,2.5rem)] uppercase tracking-[-0.04em] leading-[0.85] text-primary">
+          Lateral Movement
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Authentication events where the same user/IP accessed multiple hosts
-        </p>
+        <p className="text-sm text-muted/60 mt-2">Same user/IP authenticating to multiple hosts in 24 hours</p>
       </div>
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
+      {error && <div className="bg-accent-red/8 border-l-4 border-accent-red p-4 text-accent-red text-sm">{error}</div>}
 
       {loading ? (
-        <TableSkeleton rows={4} />
+        <div className="text-center py-8 text-muted/50 text-sm uppercase tracking-wider">Scanning for lateral movement...</div>
+      ) : data.length === 0 ? (
+        <div className="text-center py-16 border border-divider bg-base-dark/20">
+          <p className="text-muted/50 text-sm">No lateral movement patterns detected</p>
+        </div>
       ) : (
-        <>
-          <p className="text-sm text-gray-500">
-            {data.length} multi-host auth pattern{data.length !== 1 ? "s" : ""}{" "}
-            detected
-          </p>
-
-          <div className="overflow-x-auto rounded-lg border border-border-subtle">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-surface-overlay border-b border-border-subtle">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    Source IP
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    User
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    Host Count
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    Hosts
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    First Seen
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    Last Seen
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                    Risk
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {data.map((row, i) => (
-                  <tr
-                    key={i}
-                    className="hover:bg-surface-overlay/50 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs text-gray-300">
-                      {row["source.ip"]}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-300">
-                      {row["user.name"] || "—"}
-                    </td>
+        <div className="overflow-x-auto border border-divider">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-base-dark/40 border-b-2 border-primary/10">
+                {["Source IP", "User", "Host Count", "Hosts", "First Seen", "Last Seen", "Risk"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-muted/50 uppercase tracking-[0.15em]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-divider">
+              {data.map((row, i) => {
+                const hostCount = Number(row.host_count) || 0;
+                const hosts = Array.isArray(row.hosts) ? row.hosts.join(", ") : String(row.hosts || "—");
+                return (
+                  <tr key={i} className="hover:bg-base-dark/30 transition-colors">
+                    <td className="px-4 py-3 text-xs text-primary/80 font-medium">{row["source.ip"] || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted/70">{row["user.name"] || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-red-400 font-bold">
-                        {row.host_count}
+                      <span className="text-xs font-display font-bold text-accent-red">{hostCount}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted/60 max-w-xs truncate">{hosts}</td>
+                    <td className="px-4 py-3 text-xs text-muted/50">{row.first_seen ? new Date(row.first_seen).toLocaleTimeString() : "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted/50">{row.last_seen ? new Date(row.last_seen).toLocaleTimeString() : "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 border ${hostCount >= 4 ? "bg-accent-red/10 text-accent-red border-accent-red/25" : hostCount >= 3 ? "bg-accent-orange/10 text-accent-orange border-accent-orange/25" : "bg-primary/5 text-muted/60 border-divider"}`}>
+                        {hostCount >= 4 ? "critical" : hostCount >= 3 ? "high" : "medium"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {Array.isArray(row.hosts)
-                        ? row.hosts.join(", ")
-                        : String(row.hosts || "—")}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">
-                      {row.first_seen
-                        ? new Date(row.first_seen).toLocaleTimeString()
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">
-                      {row.last_seen
-                        ? new Date(row.last_seen).toLocaleTimeString()
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <SeverityBadge
-                        severity={
-                          row.host_count >= 3
-                            ? "critical"
-                            : row.host_count >= 2
-                              ? "high"
-                              : "medium"
-                        }
-                      />
-                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

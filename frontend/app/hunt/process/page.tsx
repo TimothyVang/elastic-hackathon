@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import ProcessTree from "@/components/hunt/ProcessTree";
-import { TableSkeleton } from "@/components/ui/Skeleton";
 import { esqlToRows } from "@/lib/utils";
 import type { ProcessChainEvent } from "@/lib/types";
 
@@ -15,69 +14,35 @@ export default function ProcessPage() {
 
   const search = () => {
     if (!hostname.trim()) return;
-    setLoading(true);
-    setError(null);
-    setSearched(true);
-
-    fetch(
-      `/api/hunt/process?hostname=${encodeURIComponent(hostname.trim())}`
-    )
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => {
-        const rows = esqlToRows(d.columns, d.values);
-        setEvents(rows as unknown as ProcessChainEvent[]);
-      })
+    setLoading(true); setError(null); setSearched(true);
+    fetch(`/api/hunt/process?hostname=${encodeURIComponent(hostname.trim())}`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => setEvents(esqlToRows(d.columns, d.values) as unknown as ProcessChainEvent[]))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-white">
-          Process Chain Analysis
+        <h1 className="font-display font-bold text-[clamp(1.5rem,4vw,2.5rem)] uppercase tracking-[-0.04em] leading-[0.85] text-primary">
+          Process Chain
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Analyze parent-child process relationships on a host
-        </p>
+        <p className="text-sm text-muted/60 mt-2">Analyze parent-child process trees on a host</p>
       </div>
 
-      {/* Search Form */}
       <div className="flex gap-3">
-        <input
-          type="text"
-          placeholder="Hostname (e.g., WS-PC0142)"
-          value={hostname}
-          onChange={(e) => setHostname(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && search()}
-          className="bg-surface-raised border border-border-subtle rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500 w-72 font-mono"
-        />
-        <button
-          onClick={search}
-          disabled={loading}
-          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
-        >
-          {loading ? "Analyzing..." : "Analyze"}
+        <input type="text" placeholder="Hostname (e.g., WS-PC0142)" value={hostname}
+          onChange={(e) => setHostname(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()}
+          className="bg-base-dark/40 border border-divider px-4 py-2.5 text-sm text-primary placeholder-muted/30 focus:outline-none focus:border-primary/40 w-72 font-medium" />
+        <button onClick={search} disabled={loading} className="btn-brutalist disabled:opacity-30">
+          <span className="relative z-10 text-[12px]">{loading ? "Analyzing..." : "Analyze"}</span>
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
-
-      {loading && <TableSkeleton rows={6} />}
-
-      {searched && !loading && (
-        <p className="text-sm text-gray-500">
-          {events.length} process events on {hostname}
-        </p>
-      )}
-
+      {error && <div className="bg-accent-red/8 border-l-4 border-accent-red p-4 text-accent-red text-sm">{error}</div>}
+      {loading && <div className="text-center py-8 text-muted/50 text-sm uppercase tracking-wider">Analyzing process chain...</div>}
+      {searched && !loading && <p className="text-sm text-muted/60">{events.length} processes found on {hostname}</p>}
       {!loading && <ProcessTree events={events} />}
     </div>
   );
