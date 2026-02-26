@@ -65,6 +65,10 @@ To prove it works, we built a realistic simulated environment: a **5-stage attac
 
 > :movie_camera: [Demo video coming soon — link will be added before submission]
 
+## Live Dashboard
+
+> :globe_with_meridians: **[https://frontend-drab-xi-56.vercel.app](https://frontend-drab-xi-56.vercel.app/dashboard)** — deployed on Vercel
+
 ## Tech Stack
 
 | Component | Technology |
