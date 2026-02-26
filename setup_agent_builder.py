@@ -67,35 +67,33 @@ def get_kibana_config() -> tuple[str, dict]:
 
 ESQL_TOOLS = [
     {
-        "name": "correlated_events_by_ip",
+        "id": "correlated_events_by_ip",
         "description": (
             "Find all security events correlated by source IP within a 24-hour window. "
             "Returns events sorted by timestamp, grouped by event category and MITRE technique. "
             "Use this to build a timeline of activity from a suspicious IP address."
         ),
-        "esql_query": """FROM security-alerts
+        "query": """FROM security-alerts
 | WHERE source.ip == ?source_ip
 | WHERE @timestamp >= NOW() - 24 HOURS
 | SORT @timestamp ASC
 | KEEP @timestamp, message, source.ip, destination.ip, event.category, event.action, event.severity, threat.technique.id, threat.technique.name, host.name, user.name, process.name, alert.severity
 | LIMIT 200""",
-        "parameters": [
-            {
-                "name": "source_ip",
-                "description": "The source IP address to investigate (e.g., '10.10.15.42')",
+        "params": {
+            "source_ip": {
                 "type": "string",
-                "required": True,
+                "description": "The source IP address to investigate (e.g., '10.10.15.42')",
             }
-        ],
+        },
     },
     {
-        "name": "lateral_movement_detection",
+        "id": "lateral_movement_detection",
         "description": (
             "Detect potential lateral movement by finding authentication events where "
             "the same user or source IP accessed multiple distinct hosts within a short timeframe. "
             "Filters for SMB, RDP, and WinRM protocols. High host count indicates lateral movement."
         ),
-        "esql_query": """FROM security-alerts
+        "query": """FROM security-alerts
 | WHERE event.category == "authentication"
   AND event.outcome == "success"
   AND @timestamp >= NOW() - 24 HOURS
@@ -103,16 +101,16 @@ ESQL_TOOLS = [
 | WHERE host_count >= 2
 | SORT host_count DESC
 | LIMIT 50""",
-        "parameters": [],
+        "params": {},
     },
     {
-        "name": "beaconing_detection",
+        "id": "beaconing_detection",
         "description": (
             "Detect potential C2 beaconing by identifying outbound connections with regular intervals "
             "to the same destination IP. Calculates connection frequency and looks for periodic patterns. "
             "Beaconing typically shows consistent intervals (e.g., every few minutes)."
         ),
-        "esql_query": """FROM security-alerts
+        "query": """FROM security-alerts
 | WHERE event.category == "network"
   AND network.direction == "outbound"
   AND @timestamp >= NOW() - 24 HOURS
@@ -123,56 +121,42 @@ ESQL_TOOLS = [
 | WHERE avg_interval_seconds > 0 AND avg_interval_seconds < 600
 | SORT beacon_count DESC
 | LIMIT 20""",
-        "parameters": [],
+        "params": {},
     },
     {
-        "name": "process_chain_analysis",
+        "id": "process_chain_analysis",
         "description": (
             "Analyze parent-child process relationships for a given host to identify suspicious "
             "process chains (e.g., EXCEL.EXE spawning cmd.exe spawning powershell.exe). "
             "Returns process trees with command lines for forensic analysis."
         ),
-        "esql_query": """FROM security-alerts
+        "query": """FROM security-alerts
 | WHERE event.category == "process"
   AND host.name == ?hostname
   AND @timestamp >= NOW() - 24 HOURS
 | SORT @timestamp ASC
 | KEEP @timestamp, process.name, process.pid, process.command_line, process.parent.name, process.parent.pid, user.name, event.action, threat.technique.id, alert.severity
 | LIMIT 100""",
-        "parameters": [
-            {
-                "name": "hostname",
-                "description": "The hostname to analyze process chains on (e.g., 'WS-PC0142')",
+        "params": {
+            "hostname": {
                 "type": "string",
-                "required": True,
+                "description": "The hostname to analyze process chains on (e.g., 'WS-PC0142')",
             }
-        ],
+        },
     },
 ]
 
 # ── Search Tool Definition ────────────────────────────────────────────
 
 SEARCH_TOOL = {
-    "name": "threat_intel_lookup",
+    "id": "threat_intel_lookup",
     "description": (
         "Search the threat intelligence database for IOCs (indicators of compromise). "
-        "Performs hybrid search combining keyword and semantic matching against the threat-intel index. "
+        "Performs search against the threat-intel index. "
         "Use this to look up IP addresses, domains, file hashes, tool signatures, and MITRE techniques. "
         "Returns matching IOCs with severity, confidence, and MITRE ATT&CK mapping."
     ),
-    "index": "threat-intel",
-    "fields": [
-        "ioc.type",
-        "ioc.value",
-        "ioc.description",
-        "threat.technique.id",
-        "threat.technique.name",
-        "threat.tactic.name",
-        "severity",
-        "confidence",
-        "tags",
-        "source",
-    ],
+    "pattern": "threat-intel",
 }
 
 # ── Agent Definition ──────────────────────────────────────────────────
@@ -232,14 +216,16 @@ Generate a structured report with:
 """
 
 AGENT_DEFINITION = {
+    "id": "dco_triage_agent",
     "name": "DCO Triage Agent",
     "description": (
-        "An AI-powered security analyst that performs automated first-pass triage of security alerts. "
-        "Correlates events, hunts for attack patterns, cross-references threat intelligence, "
-        "maps the MITRE ATT&CK kill chain, and generates structured triage reports with "
-        "severity scores and containment recommendations."
+        "An AI-powered DCO (Defensive Cyberspace Operations) security analyst that performs "
+        "automated first-pass triage of security alerts. Correlates events by IP, detects "
+        "beaconing and lateral movement, analyzes process chains, cross-references threat "
+        "intelligence, maps the MITRE ATT&CK kill chain, and generates structured triage "
+        "reports with severity scores (P1-P4) and containment recommendations.\n\n"
+        + AGENT_SYSTEM_PROMPT
     ),
-    "system_prompt": AGENT_SYSTEM_PROMPT,
 }
 
 
@@ -248,12 +234,12 @@ AGENT_DEFINITION = {
 def create_esql_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
     """Create an ES|QL tool in Agent Builder."""
     payload = {
-        "name": tool["name"],
-        "description": tool["description"],
+        "id": tool["id"],
         "type": "esql",
+        "description": tool["description"],
         "configuration": {
-            "query": tool["esql_query"],
-            "parameters": tool.get("parameters", []),
+            "query": tool["query"],
+            "params": tool.get("params", {}),
         },
     }
 
@@ -266,25 +252,24 @@ def create_esql_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
 
     if resp.status_code in (200, 201):
         result = resp.json()
-        console.print(f"  [green]Created ES|QL tool:[/] {tool['name']}")
+        console.print(f"  [green]Created ES|QL tool:[/] {tool['id']}")
         return result
     else:
         console.print(
-            f"  [red]Failed to create ES|QL tool {tool['name']}:[/] "
+            f"  [red]Failed to create ES|QL tool {tool['id']}:[/] "
             f"{resp.status_code} — {resp.text[:200]}"
         )
         return {"error": resp.text, "status": resp.status_code}
 
 
 def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
-    """Create a Search tool in Agent Builder."""
+    """Create an index_search tool in Agent Builder."""
     payload = {
-        "name": tool["name"],
+        "id": tool["id"],
+        "type": "index_search",
         "description": tool["description"],
-        "type": "search",
         "configuration": {
-            "index": tool["index"],
-            "fields": tool["fields"],
+            "pattern": tool["pattern"],
         },
     }
 
@@ -297,11 +282,11 @@ def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
 
     if resp.status_code in (200, 201):
         result = resp.json()
-        console.print(f"  [green]Created Search tool:[/] {tool['name']}")
+        console.print(f"  [green]Created Search tool:[/] {tool['id']}")
         return result
     else:
         console.print(
-            f"  [red]Failed to create Search tool {tool['name']}:[/] "
+            f"  [red]Failed to create Search tool {tool['id']}:[/] "
             f"{resp.status_code} — {resp.text[:200]}"
         )
         return {"error": resp.text, "status": resp.status_code}
@@ -310,10 +295,12 @@ def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
 def create_agent(kibana_url: str, headers: dict, agent_def: dict, tool_ids: list[str]) -> dict:
     """Create a custom agent in Agent Builder with all tools wired."""
     payload = {
+        "id": agent_def["id"],
         "name": agent_def["name"],
         "description": agent_def["description"],
-        "system_prompt": agent_def["system_prompt"],
-        "tools": tool_ids,
+        "configuration": {
+            "tools": [{"tool_ids": tool_ids}],
+        },
     }
 
     resp = requests.post(
@@ -349,21 +336,14 @@ def setup_agent_builder() -> None:
 
     for tool in ESQL_TOOLS:
         result = create_esql_tool(kibana_url, headers, tool)
-        if "id" in result:
+        if "id" in result and "error" not in result:
             tool_ids.append(result["id"])
-        elif "error" not in result:
-            # Some API versions return the ID differently
-            tool_id = result.get("_id") or result.get("tool_id") or tool["name"]
-            tool_ids.append(tool_id)
 
     # Create Search tool
     console.print("\n[bold cyan]Creating Search tool...[/]")
     result = create_search_tool(kibana_url, headers, SEARCH_TOOL)
-    if "id" in result:
+    if "id" in result and "error" not in result:
         tool_ids.append(result["id"])
-    elif "error" not in result:
-        tool_id = result.get("_id") or result.get("tool_id") or SEARCH_TOOL["name"]
-        tool_ids.append(tool_id)
 
     # Create Agent
     console.print(f"\n[bold cyan]Creating DCO Triage Agent (wired to {len(tool_ids)} tools)...[/]")
@@ -377,13 +357,12 @@ def setup_agent_builder() -> None:
 
     # Summary
     console.print(f"\n[bold green]Agent Builder setup complete.[/]")
-    console.print(f"  ES|QL tools created: {sum(1 for t in ESQL_TOOLS if any(tid != t['name'] for tid in tool_ids[:len(ESQL_TOOLS)]))}/{len(ESQL_TOOLS)}")
-    console.print(f"  Search tools: 1")
-    console.print(f"  Agents: 1")
+    console.print(f"  ES|QL tools created: {len([t for t in tool_ids if t != SEARCH_TOOL['id']])}/{len(ESQL_TOOLS)}")
+    console.print(f"  Search tools: {'1' if SEARCH_TOOL['id'] in tool_ids else '0'}")
     console.print(f"  Total tool IDs wired: {len(tool_ids)}")
 
-    if "id" in agent_result or "_id" in agent_result:
-        agent_id = agent_result.get("id") or agent_result.get("_id")
+    if "id" in agent_result and "error" not in agent_result:
+        agent_id = agent_result["id"]
         console.print(f"\n  Agent ID: [cyan]{agent_id}[/]")
         console.print(f"  Test it in Kibana: [dim]{kibana_url}/app/agent_builder[/]")
 
