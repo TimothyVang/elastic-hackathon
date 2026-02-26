@@ -6,87 +6,87 @@
 
 ## 0:00 – 0:20 | The Problem: Alert Fatigue
 
-**[Screen: SOC dashboard with hundreds of alerts]**
+**[Screen: Dashboard at `/dashboard` showing 105 alerts, severity breakdown]**
 
-> "Security Operations Centers receive thousands of alerts every day. Analysts spend hours manually correlating events, looking up threat intel, and triaging incidents — most of which turn out to be false positives. Real threats slip through the cracks. This is the alert fatigue problem."
+> "Security Operations Centers receive thousands of alerts every day. Analysts spend hours manually correlating events, looking up threat intel, and triaging incidents — most of which turn out to be false positives. Real threats slip through the cracks."
 
 **[Quick stat overlay: "68% of SOC analysts report alert fatigue" — Panther Labs 2024]**
 
 > "What if an AI agent could do the first-pass triage automatically?"
 
-**Judges: Notice the scale of the problem — this motivates every design decision that follows.**
+**Judges: The dashboard immediately shows the scale — 105 events, multiple severities. This motivates every design decision that follows.**
 
 ---
 
-## 0:20 – 0:40 | The Solution: Architecture Overview
+## 0:20 – 0:45 | Architecture + Live Dashboard
 
-**[Screen: Architecture diagram]**
+**[Screen: Architecture diagram (2 seconds), then switch to live dashboard]**
 
-> "Meet the DCO Threat Triage Agent — built entirely with Elastic Agent Builder. It uses four ES|QL tools for threat hunting, a semantic search tool for threat intelligence lookup, and a structured reasoning chain based on real purple team methodology."
+> "Meet the DCO Threat Triage Agent — built entirely with Elastic Agent Builder. It uses four ES|QL tools for threat hunting and a semantic search tool for threat intelligence lookup."
 
-**[Highlight the 3 indices]**
+**[Show the MITRE ATT&CK Kill Chain visualization on the dashboard]**
 
-> "The agent works across three Elasticsearch indices: security alerts with over 100 events, a MITRE ATT&CK-mapped threat intel database, and an incident log where it writes triage reports."
+> "Our dashboard visualizes the full attack kill chain in real time. You can see five MITRE ATT&CK tactics — from Initial Access through Exfiltration — with event counts at each stage."
 
-**Judges: Note the five distinct tools (4 ES|QL + 1 hybrid search) and how they chain together in the agent's reasoning loop.**
+**[Point out stat cards: Total Alerts, Critical, High, Medium/Low]**
 
----
+> "The agent works across three Elasticsearch indices: security alerts, MITRE-mapped threat intel, and an incident log for triage reports."
 
-## 0:40 – 1:20 | Data Loading Demo
-
-**[Screen: Terminal running scripts]**
-
-> "Let me show you the data. We've simulated a realistic 5-stage attack chain..."
-
-**[Run: `python load_attack_data.py`]**
-
-> "...25 attack events spanning phishing, PowerShell C2 beaconing, LSASS credential dumping, SMB lateral movement to three servers, and data exfiltration — all buried in 80 benign noise events."
-
-**[Run: `python load_threat_intel.py`]**
-
-> "And 18 threat intel IOCs mapped to MITRE ATT&CK techniques, including the C2 server IP, malware hashes, and tool signatures."
-
-**[Show Kibana Discover with security-alerts data]**
-
-> "Here's what the raw data looks like in Kibana — can you spot the attack? That's exactly the problem the agent solves."
-
-**Judges: The attack events are intentionally buried in 80+ noise events. This is the needle-in-a-haystack challenge the agent must solve.**
+**Judges: The kill chain visualization immediately tells the story — this isn't random noise, it's a coordinated attack progression.**
 
 ---
 
-## 1:20 – 2:40 | Live Agent Triage
+## 0:45 – 1:30 | Hunt Tools Demo
 
-**[Screen: Kibana Agent Builder UI]**
+**[Screen: Navigate to `/hunt/correlate`, IP pre-filled with `10.10.15.42`]**
 
-> "Now let's watch the agent work. I'll ask it to investigate the suspicious IP that our EDR flagged."
+> "Let's investigate. Starting with event correlation — every event from the suspicious workstation in chronological order."
 
-**[Type: "Investigate source IP 10.10.15.42"]**
+**[Click Search — timeline populates with 34 attack events among noise]**
 
-> "Watch the reasoning chain..."
+> "34 events from this IP, spanning phishing, PowerShell execution, credential dumping, lateral movement, and exfiltration prep."
 
-**[Agent executes tools — highlight each step]**
+**[Navigate to `/hunt/beaconing`]**
 
-1. > "First, the **Event Correlation** tool (ES|QL) pulls ALL events from 10.10.15.42 — building a full timeline of activity from this workstation."
-2. > "Next, the **Threat Intel Lookup** tool (hybrid search) cross-references indicators against our MITRE ATT&CK-mapped IOC database — and immediately finds matches for the C2 server and malware hashes."
-3. > "The **Beaconing Detection** tool (ES|QL) analyzes outbound connection patterns — and identifies the 60-second callback interval to the C2 server at 203.0.113.50."
-4. > "The **Lateral Movement Detection** tool (ES|QL) traces SMB connections and credential use — revealing the compromised service account accessing three different servers: SRV-DC01, SRV-FILE01, and SRV-DB01."
-5. > "Finally, the **Process Chain Analysis** tool (ES|QL) reconstructs the execution tree: Excel spawning cmd.exe, spawning PowerShell, leading to LSASS credential dumping."
+> "Beaconing detection finds the C2 callback pattern — outbound connections to 198.51.100.23 every ~345 seconds. Classic command-and-control."
 
-**Judges: Watch for the multi-tool reasoning chain. The agent decides which tool to call next based on what it learned from the previous tool -- this is not a scripted pipeline.**
+**[Navigate to `/hunt/process`, hostname `WS-PC0142`]**
 
-**[Show the triage report]**
+> "Process chain analysis reveals the kill chain: OUTLOOK spawning EXCEL, dropping to cmd.exe, then PowerShell with Base64-encoded payloads, and finally procdump for LSASS credential harvesting."
 
-> "And here's the output — a complete triage report with MITRE ATT&CK mapping across all five kill chain phases, a P1 severity assessment, and specific containment recommendations: isolate the workstation, block the C2 IP, reset the compromised service account, and scan the three lateral movement targets."
-
-**[Highlight: "This took 30 seconds. A human analyst would need 30-45 minutes."]**
-
-**Judges: The triage report maps to real MITRE ATT&CK technique IDs and produces actionable containment steps -- not just a summary.**
+**Judges: Each hunt tool runs a real ES|QL query against Elasticsearch. These are the same tools the agent uses autonomously.**
 
 ---
 
-## 2:40 – 3:00 | Impact & Wrap-up
+## 1:30 – 2:30 | Agent Triage
 
-**[Screen: Summary slide]**
+**[Screen: Navigate to `/chat` — Agent Chat interface]**
+
+> "Now let's see the agent work autonomously. I'll ask it to triage the alerts from 10.10.15.42."
+
+**[Type: "Triage the latest critical alerts from 10.10.15.42"]**
+
+> "Watch the reasoning chain — the agent calls event correlation, cross-references threat intel, detects beaconing, traces lateral movement, and reconstructs the process tree."
+
+**[Agent response appears with full triage report]**
+
+> "In 30 seconds, we get a complete triage report: MITRE ATT&CK kill chain mapping across all five stages, threat intel matches including the Lazarus Group C2 server, and specific containment actions — isolate the workstation, block the C2 IP, reset compromised credentials, sweep lateral movement targets."
+
+**[Navigate to `/incidents` — show the incident record]**
+
+> "The triage report is automatically logged as an incident for the SOC team to action."
+
+**[Navigate to `/alerts`, click a critical alert — show AlertDrawer]**
+
+> "And analysts can drill into any alert for full ECS field inspection — process trees, network details, MITRE mappings, everything they need."
+
+**Judges: The agent's multi-tool reasoning chain is not scripted. It autonomously decides which tool to call next based on what it learned from the previous one. 30-minute manual process → 30 seconds.**
+
+---
+
+## 2:30 – 3:00 | Impact & Wrap-up
+
+**[Screen: Dashboard with auto-refresh countdown visible]**
 
 > "The DCO Threat Triage Agent transforms alert triage from a 30-minute manual process into a 30-second automated analysis. It doesn't replace analysts — it amplifies them, letting them focus on confirmed threats instead of drowning in noise."
 
@@ -94,21 +94,23 @@
 
 > "Thank you."
 
-**Judges: Key takeaway -- the agent amplifies analysts rather than replacing them, turning a 30-minute manual process into 30 seconds of automated first-pass triage.**
+**[End card: GitHub repo URL, deployed dashboard URL]**
 
-**[End card: GitHub repo URL, team info]**
+**Judges: Key takeaway — the agent amplifies analysts rather than replacing them, and the entire system is built on Elastic's native tooling.**
 
 ---
 
 ## Recording Notes
 
-- **Resolution**: 1920x1080
+- **Resolution**: 1920x1080 (dark mode throughout)
 - **Audio**: Clear narration, no background music during demos
-- **Terminal font**: Large enough to read (14pt+)
-- **Kibana theme**: Dark mode for better contrast
+- **Browser**: Full screen, no bookmarks bar — maximize dashboard visibility
+- **Font size**: Dashboard is designed for 1920x1080 — no zooming needed
 - **Timing**: Practice to hit 2:55-3:00 mark
 - **Key moments to emphasize**:
-  - The 60-second beaconing pattern detection (Beaconing Detection tool)
-  - Multi-tool reasoning chain — agent autonomously calls all 5 tools: Event Correlation, Threat Intel Lookup, Beaconing Detection, Lateral Movement Detection, Process Chain Analysis
-  - The contrast between raw data chaos (100+ events) and structured triage output
-  - MITRE ATT&CK kill chain mapping across all 5 attack stages
+  - Kill chain visualization on dashboard (the "wow" moment)
+  - Beaconing detection with ~345s interval pattern
+  - Agent chat producing the full triage report in ~30 seconds
+  - Alert detail drawer showing deep ECS field inspection
+  - Auto-refresh countdown showing this is a live, production-quality dashboard
+- **Fallback plan**: If Agent Builder API is unavailable, the chat page automatically shows a pre-recorded triage result that's identical to what the agent produces

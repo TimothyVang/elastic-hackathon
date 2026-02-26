@@ -74,8 +74,10 @@ To prove it works, we built a realistic simulated environment: a **5-stage attac
 | Query Language | ES\|QL |
 | Search | Hybrid / Semantic Search |
 | Threat Framework | MITRE ATT&CK |
+| Dashboard | Next.js 14 + TypeScript + Tailwind CSS |
+| Charts | Recharts |
 | Build Harness | Claude Agent SDK (Python) |
-| Language | Python 3.11+ |
+| Languages | Python 3.11+, TypeScript 5.7 |
 
 ## Project Structure
 
@@ -93,21 +95,49 @@ elastic-hackathon/
 ├── load_threat_intel.py       # 18 MITRE ATT&CK-mapped IOCs
 ├── setup_agent_builder.py     # Agent Builder tools + agent (via Kibana API)
 ├── test_agent.py              # End-to-end triage test suite
-├── initializer_prompt.md      # System prompt for the Initializer Agent
-├── initializer_task.md        # Task prompt for Initializer session
-├── coding_prompt.md           # System prompt for the Builder Agent
-├── continuation_task.md       # Task template for Builder sessions
-├── demo_script.md             # 3-minute demo video walkthrough
 ├── requirements.txt           # Python dependencies
-├── .env                       # Environment variables (not committed)
 ├── .env.example               # Template for .env
-├── .gitignore                 # Git ignore rules
-├── LICENSE                    # MIT License
+├── frontend/                  # Next.js dashboard (see below)
 └── dco_agent_project/         # Generated project directory (created at runtime)
-    ├── .elastic_project.json  # Initialization marker
-    ├── task_tracker.json      # Feature checklist (pass/fail status)
-    └── CLAUDE.md              # Persistent context for agent sessions
 ```
+
+### Frontend Dashboard
+
+A real-time security operations dashboard built with **Next.js 14 + TypeScript + Tailwind CSS** that queries Elasticsearch directly.
+
+```
+frontend/
+├── app/
+│   ├── dashboard/      # Overview: stat cards, severity donut, event timeline, kill chain
+│   ├── alerts/         # Filterable alert table with click-to-inspect detail drawer
+│   ├── hunt/
+│   │   ├── correlate/  # IP event correlation timeline
+│   │   ├── beaconing/  # C2 beacon pattern detection
+│   │   ├── lateral/    # Multi-host auth analysis
+│   │   └── process/    # Parent-child process tree
+│   ├── intel/          # IOC search with MITRE mappings
+│   ├── incidents/      # Agent-generated triage reports
+│   ├── chat/           # Live agent chat interface
+│   └── api/            # 10 API routes proxying to Elasticsearch
+├── components/
+│   ├── dashboard/      # StatCard, EventTimeline, SeverityDonut, KillChainTimeline
+│   ├── hunt/           # CorrelatedTimeline, BeaconingTable, ProcessTree
+│   ├── intel/          # IOCTable
+│   └── ui/             # DataTable, SeverityBadge, MitreBadge, StatusBadge, AlertDrawer, Skeleton
+└── lib/
+    ├── elasticsearch.ts  # ES client (Cloud ID or URL)
+    ├── queries.ts        # ES|QL query templates
+    ├── types.ts          # TypeScript interfaces for 3 ES indices
+    └── utils.ts          # Shared helpers (esqlToRows)
+```
+
+**Key features:**
+- **MITRE ATT&CK Kill Chain Visualization** — horizontal flow showing attack progression through 5+ tactics
+- **Alert Detail Drawer** — click any alert row for a slide-out panel with full ECS field inspection
+- **Agent Chat UI** — send prompts to the DCO Triage Agent via Agent Builder API (falls back to pre-recorded results)
+- **Auto-refresh** — dashboard polls every 30 seconds with visible countdown timer
+- **Connection Status** — live Elasticsearch health indicator in sidebar
+- **Loading Skeletons** — animated placeholders during data fetching
 
 ## How It Works
 
@@ -187,6 +217,20 @@ python setup_agent_builder.py
 python test_agent.py              # Full test (data + agent)
 python test_agent.py --data-only  # Data + ES|QL queries only
 ```
+
+### Running the Dashboard
+
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local  # Or edit .env.local with your ES credentials
+npm run dev                        # → http://localhost:3000
+```
+
+The dashboard requires the same Elasticsearch credentials as the backend. Set these in `frontend/.env.local`:
+- `ELASTICSEARCH_URL` or `ELASTIC_CLOUD_ID`
+- `ELASTIC_API_KEY`
+- `KIBANA_URL` (optional, for Agent Chat)
 
 ### Running the Autonomous Harness
 
