@@ -7,11 +7,10 @@ export default function MitreBadge({
 }) {
   if (!techniqueId) return null;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono bg-purple-500/15 text-purple-400 border border-purple-500/30">
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] bg-accent-red/8 text-accent-red border border-accent-red/20">
       {techniqueId}
       {techniqueName && (
-        <span className="text-purple-400/60 font-sans hidden lg:inline">
-          {" "}
+        <span className="text-accent-red/60 font-normal normal-case hidden lg:inline tracking-normal">
           {techniqueName}
         </span>
       )}

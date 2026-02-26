@@ -6,54 +6,90 @@ interface Props {
   data: { name: string; value: number; color: string }[];
 }
 
-export default function SeverityDonut({ data }: Props) {
-  return (
-    <div className="bg-surface-overlay/30 backdrop-blur-glass border border-border-subtle rounded-2xl p-6 relative overflow-hidden group hover:border-cyber-violet/30 transition-colors duration-500">
-      <div className="absolute inset-0 bg-gradient-to-b from-cyber-violet/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+// Remap colors to Raw Form palette
+const SEVERITY_COLORS: Record<string, string> = {
+  Critical: "#DB4A2B",
+  High: "#F8A348",
+  Medium: "#FF89A9",
+  Low: "#1E1E1E",
+};
 
-      <h3 className="text-sm font-mono tracking-widest text-cyber-violet uppercase mb-6 relative z-10 drop-shadow-[0_0_8px_rgba(184,0,255,0.5)]">
-        Alert Severity Distribution
+export default function SeverityDonut({ data }: Props) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+
+  // Apply Raw Form colors
+  const coloredData = data.map((d) => ({
+    ...d,
+    color: SEVERITY_COLORS[d.name] || d.color,
+  }));
+
+  return (
+    <div className="relative bg-base-dark/40 border border-divider p-6">
+      {/* Top accent */}
+      <div className="absolute top-0 left-0 w-full h-[3px] bg-accent-pink" />
+
+      <h3 className="text-[11px] font-bold text-muted/60 uppercase tracking-[0.15em] mb-6">
+        Severity Distribution
       </h3>
-      <div className="h-64 relative z-10">
+
+      <div className="h-64 relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={coloredData}
               cx="50%"
               cy="50%"
-              innerRadius={65}
-              outerRadius={90}
-              paddingAngle={4}
+              innerRadius={60}
+              outerRadius={85}
+              paddingAngle={2}
               dataKey="value"
-              animationDuration={1500}
+              animationDuration={1200}
               stroke="none"
             >
-              {data.map((entry, i) => (
-                <Cell
-                  key={i}
-                  fill={entry.color}
-                  className="drop-shadow-[0_0_5px_currentColor] transition-all duration-300 hover:opacity-80"
-                />
+              {coloredData.map((entry, i) => (
+                <Cell key={i} fill={entry.color} />
               ))}
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(10, 13, 20, 0.8)",
-                border: "1px solid rgba(184, 0, 255, 0.3)",
-                borderRadius: "12px",
-                color: "#e5e7eb",
-                boxShadow: "0 0 20px rgba(184, 0, 255, 0.15)",
-                backdropFilter: "blur(12px)",
+                backgroundColor: "#E4E2DD",
+                border: "2px solid #1E1E1E",
+                borderRadius: "0",
+                color: "#1E1E1E",
+                fontFamily: "'Satoshi', sans-serif",
+                fontSize: "13px",
+                fontWeight: "500",
+                boxShadow: "4px 4px 0 0 #1E1E1E",
               }}
-              itemStyle={{ fontFamily: "monospace", fontSize: "14px" }}
+              itemStyle={{ fontFamily: "'Satoshi', sans-serif" }}
               labelStyle={{ display: "none" }}
             />
             <Legend
-              wrapperStyle={{ fontSize: "12px", color: "#9ca3af", fontFamily: "monospace" }}
-              iconType="circle"
+              wrapperStyle={{
+                fontSize: "11px",
+                color: "#444444",
+                fontFamily: "'Satoshi', sans-serif",
+                fontWeight: "500",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+              iconType="square"
+              iconSize={8}
             />
           </PieChart>
         </ResponsiveContainer>
+
+        {/* Center text */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ marginTop: "-16px" }}>
+          <div className="text-center">
+            <div className="text-3xl font-display font-bold text-primary tracking-[-0.03em]">
+              {total}
+            </div>
+            <div className="text-[9px] font-bold text-muted/50 uppercase tracking-[0.2em]">
+              Total
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

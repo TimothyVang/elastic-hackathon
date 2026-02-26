@@ -14,7 +14,6 @@ export default function IncidentsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [search, setSearch] = useState("");
@@ -27,145 +26,80 @@ export default function IncidentsPage() {
     if (search) params.set("q", search);
 
     fetch(`/api/incidents?${params}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => {
-        setIncidents(d.incidents);
-        setTotal(d.total);
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { setIncidents(d.incidents); setTotal(d.total); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [status, priority, search]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-white">Incident Log</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="font-display font-bold text-[clamp(2rem,5vw,3.5rem)] uppercase tracking-[-0.05em] leading-[0.85] text-primary">
+          Incidents
+        </h1>
+        <p className="text-sm text-muted/60 mt-2">
           {total} incident{total !== 1 ? "s" : ""} in the incident-log index
         </p>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="bg-surface-raised border border-border-subtle rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
-        >
+        <select value={status} onChange={(e) => setStatus(e.target.value)}
+          className="bg-base-dark/40 border border-divider px-3 py-2.5 text-sm text-primary focus:outline-none focus:border-primary/40 uppercase tracking-wider text-[12px] font-medium">
           <option value="">All Statuses</option>
           {STATUS_OPTIONS.filter(Boolean).map((s) => (
-            <option key={s} value={s}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </option>
+            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
           ))}
         </select>
 
-        <select
-          value={priority}
-          onChange={(e) => setPriority(e.target.value)}
-          className="bg-surface-raised border border-border-subtle rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
-        >
+        <select value={priority} onChange={(e) => setPriority(e.target.value)}
+          className="bg-base-dark/40 border border-divider px-3 py-2.5 text-sm text-primary focus:outline-none focus:border-primary/40 uppercase tracking-wider text-[12px] font-medium">
           <option value="">All Priorities</option>
           {PRIORITY_OPTIONS.filter(Boolean).map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
+            <option key={p} value={p}>{p}</option>
           ))}
         </select>
 
-        <input
-          type="text"
-          placeholder="Search incidents..."
-          value={search}
+        <input type="text" placeholder="Search incidents..." value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && fetchData()}
-          className="bg-surface-raised border border-border-subtle rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500 w-64"
-        />
+          className="bg-base-dark/40 border border-divider px-3 py-2.5 text-sm text-primary placeholder-muted/30 focus:outline-none focus:border-primary/40 w-64" />
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-          {error}
-        </div>
+        <div className="bg-accent-red/8 border-l-4 border-accent-red p-4 text-accent-red text-sm">{error}</div>
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">
-          Loading incidents...
-        </div>
+        <div className="text-center py-12 text-muted/50 text-sm uppercase tracking-wider">Loading incidents...</div>
       ) : incidents.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          No incidents found. Incidents are created when the DCO Triage Agent
-          completes an investigation.
+        <div className="text-center py-16 border border-divider bg-base-dark/20">
+          <p className="text-muted/50 text-sm">No incidents found.</p>
+          <p className="text-muted/30 text-xs mt-1">Incidents are created when the DCO Triage Agent completes an investigation.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border-subtle">
+        <div className="overflow-x-auto border border-divider">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-surface-overlay border-b border-border-subtle">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Time
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Title
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Severity
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Priority
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Triage
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Events
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  Hosts
-                </th>
+              <tr className="bg-base-dark/40 border-b-2 border-primary/10">
+                {["Time", "Title", "Severity", "Priority", "Status", "Triage", "Events", "Hosts"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-muted/50 uppercase tracking-[0.15em]">{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle">
+            <tbody className="divide-y divide-divider">
               {incidents.map((inc, i) => (
-                <tr
-                  key={i}
-                  className="hover:bg-surface-overlay/50 transition-colors"
-                >
-                  <td className="px-4 py-3 text-xs text-gray-500 font-mono whitespace-nowrap">
-                    {safeFormat(inc["@timestamp"])}
-                  </td>
-                  <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
-                    {inc.incident?.title || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <SeverityBadge severity={inc.incident?.severity} />
-                  </td>
-                  <td className="px-4 py-3 text-xs font-medium text-gray-300">
-                    {inc.incident?.priority || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={inc.incident?.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={inc.triage_result} />
-                  </td>
-                  <td className="px-4 py-3 text-xs font-mono text-gray-400">
-                    {inc.event_count ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
-                    {inc.affected_hosts?.join(", ") || "—"}
-                  </td>
+                <tr key={i} className="hover:bg-base-dark/30 transition-colors">
+                  <td className="px-4 py-3 text-xs text-muted/60 whitespace-nowrap">{safeFormat(inc["@timestamp"])}</td>
+                  <td className="px-4 py-3 text-primary/80 max-w-xs truncate">{inc.incident?.title || "—"}</td>
+                  <td className="px-4 py-3"><SeverityBadge severity={inc.incident?.severity} /></td>
+                  <td className="px-4 py-3 text-xs font-bold text-primary/70">{inc.incident?.priority || "—"}</td>
+                  <td className="px-4 py-3"><StatusBadge status={inc.incident?.status} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={inc.triage_result} /></td>
+                  <td className="px-4 py-3 text-xs text-muted/60 font-medium">{inc.event_count ?? "—"}</td>
+                  <td className="px-4 py-3 text-xs text-muted/60">{inc.affected_hosts?.join(", ") || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -178,9 +112,6 @@ export default function IncidentsPage() {
 
 function safeFormat(ts: string | undefined): string {
   if (!ts) return "—";
-  try {
-    return format(new Date(ts), "MMM d HH:mm");
-  } catch {
-    return ts;
-  }
+  try { return format(new Date(ts), "MMM d HH:mm"); }
+  catch { return ts; }
 }

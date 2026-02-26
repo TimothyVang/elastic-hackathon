@@ -17,60 +17,43 @@ export default function IntelPage() {
     if (search) params.set("q", search);
 
     fetch(`/api/intel?${params}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => {
-        setIocs(d.iocs);
-        setTotal(d.total);
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { setIocs(d.iocs); setTotal(d.total); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [search]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-white">Threat Intelligence</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {total} IOCs in the threat-intel index
+        <h1 className="font-display font-bold text-[clamp(2rem,5vw,3.5rem)] uppercase tracking-[-0.05em] leading-[0.85] text-primary">
+          Threat<br />
+          <span className="text-accent-orange ml-[5vw]">Intel</span>
+        </h1>
+        <p className="text-sm text-muted/60 mt-3">
+          {total} IOCs in the threat-intel index — MITRE ATT&CK mapped
         </p>
       </div>
 
-      {/* Search */}
       <div className="flex gap-3">
-        <input
-          type="text"
-          placeholder="Search IOCs (IP, domain, hash, technique...)"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+        <input type="text" placeholder="Search IOCs (IP, domain, hash, technique...)"
+          value={search} onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && fetchData()}
-          className="bg-surface-raised border border-border-subtle rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500 w-96 font-mono"
-        />
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
-        >
-          {loading ? "Searching..." : "Search"}
+          className="bg-base-dark/40 border border-divider px-4 py-2.5 text-sm text-primary placeholder-muted/30 focus:outline-none focus:border-primary/40 w-96" />
+        <button onClick={fetchData} disabled={loading}
+          className="btn-brutalist disabled:opacity-30">
+          <span className="relative z-10 text-[12px]">{loading ? "Searching..." : "Search"}</span>
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-          {error}
-        </div>
+        <div className="bg-accent-red/8 border-l-4 border-accent-red p-4 text-accent-red text-sm">{error}</div>
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">
-          Loading threat intelligence...
-        </div>
+        <div className="text-center py-12 text-muted/50 text-sm uppercase tracking-wider">Loading threat intelligence...</div>
       ) : (
         <IOCTable data={iocs} />
       )}

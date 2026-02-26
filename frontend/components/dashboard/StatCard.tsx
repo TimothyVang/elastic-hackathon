@@ -12,13 +12,16 @@ interface StatCardProps {
   subtext?: string;
 }
 
-const COLOR_MAP: Record<string, { bg: string; text: string; icon: string; borderHover: string; glow: string }> = {
-  red: { bg: "bg-cyber-red/10", text: "text-cyber-red drop-shadow-[0_0_8px_rgba(255,0,60,0.8)]", icon: "text-cyber-red", borderHover: "hover:border-cyber-red/50", glow: "hover:shadow-[0_0_30px_rgba(255,0,60,0.15)]" },
-  orange: { bg: "bg-cyber-gold/10", text: "text-cyber-gold drop-shadow-[0_0_8px_rgba(255,184,0,0.8)]", icon: "text-cyber-gold", borderHover: "hover:border-cyber-gold/50", glow: "hover:shadow-[0_0_30px_rgba(255,184,0,0.15)]" },
-  yellow: { bg: "bg-cyber-gold/10", text: "text-cyber-gold drop-shadow-[0_0_8px_rgba(255,184,0,0.8)]", icon: "text-cyber-gold", borderHover: "hover:border-cyber-gold/50", glow: "hover:shadow-[0_0_30px_rgba(255,184,0,0.15)]" },
-  green: { bg: "bg-green-500/10", text: "text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]", icon: "text-green-400", borderHover: "hover:border-green-500/50", glow: "hover:shadow-[0_0_30px_rgba(34,197,94,0.15)]" },
-  blue: { bg: "bg-cyber-cyan/10", text: "text-cyber-cyan drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]", icon: "text-cyber-cyan", borderHover: "hover:border-cyber-cyan/50", glow: "hover:shadow-[0_0_30px_rgba(0,240,255,0.15)]" },
-  purple: { bg: "bg-cyber-violet/10", text: "text-cyber-violet drop-shadow-[0_0_8px_rgba(184,0,255,0.8)]", icon: "text-cyber-violet", borderHover: "hover:border-cyber-violet/50", glow: "hover:shadow-[0_0_30px_rgba(184,0,255,0.15)]" },
+const COLOR_MAP: Record<
+  string,
+  { accent: string; text: string; bg: string }
+> = {
+  red:    { accent: "#DB4A2B", text: "text-accent-red", bg: "bg-accent-red/8" },
+  orange: { accent: "#F8A348", text: "text-accent-orange", bg: "bg-accent-orange/8" },
+  yellow: { accent: "#F8A348", text: "text-accent-orange", bg: "bg-accent-orange/8" },
+  green:  { accent: "#22c55e", text: "text-green-600", bg: "bg-green-500/8" },
+  blue:   { accent: "#1E1E1E", text: "text-primary", bg: "bg-primary/5" },
+  purple: { accent: "#FF89A9", text: "text-accent-pink", bg: "bg-accent-pink/8" },
 };
 
 export default function StatCard({
@@ -32,32 +35,36 @@ export default function StatCard({
   const isNumber = typeof value === "number";
 
   return (
-    <div className={clsx(
-      "group relative bg-surface-overlay/30 backdrop-blur-glass border border-border-subtle rounded-2xl p-6 transition-all duration-500 flex flex-col justify-between overflow-hidden",
-      c.borderHover,
-      c.glow
-    )}>
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    <div
+      className="group relative bg-base-dark/50 border border-divider p-6 transition-all duration-300 hover:shadow-brutal-sm hover:translate-x-[-2px] hover:translate-y-[-2px]"
+    >
+      {/* Top accent bar */}
+      <div
+        className="absolute top-0 left-0 w-full h-[3px]"
+        style={{ backgroundColor: c.accent }}
+      />
 
-      <div className="relative flex items-start justify-between z-10 w-full mb-4">
-        <p className="text-[11px] font-mono text-gray-400 uppercase tracking-[0.15em] opacity-80">
+      <div className="flex items-start justify-between mb-4">
+        <p className="text-[11px] font-medium text-muted uppercase tracking-[0.15em]">
           {label}
         </p>
-        <div className={clsx("p-2.5 rounded-xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3", c.bg)}>
-          <Icon className={clsx("w-5 h-5", c.icon)} />
+        <div className={clsx("p-2 rounded-none", c.bg)}>
+          <Icon className={clsx("w-4 h-4", c.text)} />
         </div>
       </div>
 
-      <div className="relative z-10">
-        <div className={clsx("text-4xl font-bold tracking-tight font-sans", c.text)}>
+      <div>
+        <div className={clsx("text-4xl font-display font-bold tracking-[-0.03em]", c.text)}>
           {isNumber ? (
-            <CountUp end={value as number} duration={2.5} separator="," useEasing />
+            <CountUp end={value as number} duration={2} separator="," useEasing />
           ) : (
             value
           )}
         </div>
         {subtext && (
-          <p className="text-xs text-gray-500 mt-2 font-mono tracking-wide uppercase">{subtext}</p>
+          <p className="text-[11px] text-muted/60 mt-2 tracking-[0.1em] uppercase">
+            {subtext}
+          </p>
         )}
       </div>
     </div>

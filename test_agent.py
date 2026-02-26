@@ -186,6 +186,25 @@ def test_esql_queries(es) -> bool:
         console.print(f"    [red]FAIL[/] {e}")
         all_pass = False
 
+    # Test 4: Privilege escalation detection
+    console.print("  [bold]ES|QL: Privilege escalation detection[/]")
+    try:
+        result = es.esql.query(
+            query=(
+                'FROM security-alerts '
+                '| WHERE event.severity >= 60 '
+                '| STATS high_sev_count = COUNT(*), techniques = VALUES(threat.technique.id) BY user.name, source.ip '
+                '| WHERE high_sev_count >= 3 '
+                '| SORT high_sev_count DESC'
+            ),
+            format="json",
+        )
+        rows = len(result.get("values", []))
+        console.print(f"    [green]PASS[/] Found {rows} users with high-severity event clusters")
+    except Exception as e:
+        console.print(f"    [red]FAIL[/] {e}")
+        all_pass = False
+
     return all_pass
 
 

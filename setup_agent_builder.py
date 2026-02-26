@@ -2,9 +2,10 @@
 Set up Elastic Agent Builder tools and agent via the Kibana REST API.
 
 Creates:
-  - 4 ES|QL tools for threat hunting queries
+  - 5 ES|QL tools for threat hunting queries
   - 1 Search tool for threat intelligence lookup
-  - 1 Custom DCO Triage Agent wired to all 5 tools
+  - 1 Workflow tool for automated incident triage
+  - 1 Custom DCO Triage Agent wired to all 7 tools
 
 Requires:
   - KIBANA_URL: Kibana instance URL
@@ -144,6 +145,23 @@ ESQL_TOOLS = [
             }
         },
     },
+    {
+        "id": "privilege_escalation_detection",
+        "description": (
+            "Detect potential privilege escalation by identifying processes running with elevated "
+            "privileges, service account usage from workstations, and suspicious token manipulation. "
+            "Flags events where non-admin users gain admin-level access or where service accounts "
+            "are used outside their normal scope."
+        ),
+        "query": """FROM security-alerts
+| WHERE event.severity >= 60
+  AND @timestamp >= NOW() - 24 HOURS
+| STATS high_sev_count = COUNT(*), techniques = VALUES(threat.technique.id), hosts = VALUES(host.name), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY user.name, source.ip
+| WHERE high_sev_count >= 3
+| SORT high_sev_count DESC
+| LIMIT 30""",
+        "params": {},
+    },
 ]
 
 # ── Search Tool Definition ────────────────────────────────────────────
@@ -157,6 +175,18 @@ SEARCH_TOOL = {
         "Returns matching IOCs with severity, confidence, and MITRE ATT&CK mapping."
     ),
     "pattern": "threat-intel",
+}
+
+# ── Workflow Tool Definition ──────────────────────────────────────────
+
+WORKFLOW_TOOL = {
+    "id": "incident_triage_workflow",
+    "description": (
+        "Trigger the automated incident triage workflow that creates an incident record "
+        "in the incident-log index, assigns severity, and generates containment recommendations. "
+        "Use this after completing your analysis to formally document the triage results."
+    ),
+    "workflow_id": "incident_triage",
 }
 
 # ── Agent Definition ──────────────────────────────────────────────────
@@ -220,10 +250,18 @@ AGENT_DEFINITION = {
     "name": "DCO Triage Agent",
     "description": (
         "An AI-powered DCO (Defensive Cyberspace Operations) security analyst that performs "
-        "automated first-pass triage of security alerts. Correlates events by IP, detects "
-        "beaconing and lateral movement, analyzes process chains, cross-references threat "
-        "intelligence, maps the MITRE ATT&CK kill chain, and generates structured triage "
-        "reports with severity scores (P1-P4) and containment recommendations.\n\n"
+        "autonomous first-pass triage of security alerts using 7 specialized tools across "
+        "3 tool types (ES|QL, Search, Workflow).\n\n"
+        "Tool inventory:\n"
+        "- correlated_events_by_ip (ES|QL): Build event timelines by source IP\n"
+        "- lateral_movement_detection (ES|QL): Detect multi-host credential abuse\n"
+        "- beaconing_detection (ES|QL): Identify C2 communication patterns\n"
+        "- process_chain_analysis (ES|QL): Forensic parent-child process trees\n"
+        "- privilege_escalation_detection (ES|QL): Flag high-severity escalation patterns\n"
+        "- threat_intel_lookup (Search): Cross-reference IOCs against threat intelligence\n"
+        "- incident_triage_workflow (Workflow): Formally document triage results and trigger containment\n\n"
+        "Capabilities: MITRE ATT&CK kill chain mapping, severity scoring (P1-P4), "
+        "structured triage reports, and automated incident documentation.\n\n"
         + AGENT_SYSTEM_PROMPT
     ),
 }
@@ -292,6 +330,38 @@ def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
         return {"error": resp.text, "status": resp.status_code}
 
 
+def create_workflow_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
+    """Create a workflow tool in Agent Builder."""
+    payload = {
+        "id": tool["id"],
+        "type": "workflow",
+        "description": tool["description"],
+        "configuration": {
+            "workflow_id": tool["workflow_id"],
+        },
+    }
+
+    resp = requests.post(
+        f"{kibana_url}/api/agent_builder/tools",
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+
+    if resp.status_code in (200, 201):
+        result = resp.json()
+        console.print(f"  [green]Created Workflow tool:[/] {tool['id']}")
+        return result
+    else:
+        console.print(
+            f"  [yellow]WARN — Workflow tool {tool['id']} not created:[/] "
+            f"{resp.status_code} — {resp.text[:200]}\n"
+            f"  [dim](This is expected if the Elastic Workflow '{tool['workflow_id']}' "
+            f"has not been created in Kibana yet.)[/]"
+        )
+        return {"error": resp.text, "status": resp.status_code}
+
+
 def create_agent(kibana_url: str, headers: dict, agent_def: dict, tool_ids: list[str]) -> dict:
     """Create a custom agent in Agent Builder with all tools wired."""
     payload = {
@@ -345,6 +415,12 @@ def setup_agent_builder() -> None:
     if "id" in result and "error" not in result:
         tool_ids.append(result["id"])
 
+    # Create Workflow tool
+    console.print("\n[bold cyan]Creating Workflow tool...[/]")
+    workflow_result = create_workflow_tool(kibana_url, headers, WORKFLOW_TOOL)
+    if "id" in workflow_result and "error" not in workflow_result:
+        tool_ids.append(workflow_result["id"])
+
     # Create Agent
     console.print(f"\n[bold cyan]Creating DCO Triage Agent (wired to {len(tool_ids)} tools)...[/]")
     agent_result = create_agent(kibana_url, headers, AGENT_DEFINITION, tool_ids)
@@ -356,9 +432,15 @@ def setup_agent_builder() -> None:
         sys.exit(1)
 
     # Summary
+    esql_ids = {t["id"] for t in ESQL_TOOLS}
+    esql_count = len([t for t in tool_ids if t in esql_ids])
+    search_ok = SEARCH_TOOL["id"] in tool_ids
+    workflow_ok = WORKFLOW_TOOL["id"] in tool_ids
+
     console.print(f"\n[bold green]Agent Builder setup complete.[/]")
-    console.print(f"  ES|QL tools created: {len([t for t in tool_ids if t != SEARCH_TOOL['id']])}/{len(ESQL_TOOLS)}")
-    console.print(f"  Search tools: {'1' if SEARCH_TOOL['id'] in tool_ids else '0'}")
+    console.print(f"  ES|QL tools created: {esql_count}/{len(ESQL_TOOLS)}")
+    console.print(f"  Search tools: {'1' if search_ok else '0'}/1")
+    console.print(f"  Workflow tools: {'1' if workflow_ok else '0 (workflow may need manual creation in Kibana)'}")
     console.print(f"  Total tool IDs wired: {len(tool_ids)}")
 
     if "id" in agent_result and "error" not in agent_result:

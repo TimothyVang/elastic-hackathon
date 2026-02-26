@@ -13,61 +13,67 @@
 
 ## Solution
 
-**DCO Threat Triage Agent** automates the entire first-pass triage workflow using five purpose-built tools orchestrated by Elastic Agent Builder:
+**DCO Threat Triage Agent** automates the entire first-pass triage workflow using **seven purpose-built tools** orchestrated by Elastic Agent Builder:
 
 1. **Event Correlation** (ES|QL) — Links related alerts by source IP, timeframe, and host across the full event timeline
 2. **Beaconing Detection** (ES|QL) — Identifies periodic C2 callback patterns using time-bucketed aggregation
 3. **Lateral Movement Detection** (ES|QL) — Traces credential use and SMB connections across multiple hosts
 4. **Process Chain Analysis** (ES|QL) — Reconstructs parent-child process trees to reveal execution chains
-5. **Threat Intel Lookup** (Hybrid Search) — Cross-references IOCs against a MITRE ATT&CK-mapped database using semantic + keyword search
+5. **Privilege Escalation Detection** (ES|QL) — Detects suspicious privilege changes and token manipulation across hosts
+6. **Threat Intel Lookup** (Search) — Cross-references IOCs against a MITRE ATT&CK-mapped database using hybrid semantic + keyword search
+7. **Incident Workflow** (Workflow) — Automatically logs triage results, severity scores, and containment recommendations to the incident log
 
-The agent chains these tools in a reasoning loop, then generates a structured triage report with MITRE ATT&CK kill chain mapping, severity scoring, and specific containment recommendations.
+The agent chains these tools in a **6-step reasoning loop** (Correlate, Enrich, Detect, Forensic Analysis, Score, Report), then generates a structured triage report with MITRE ATT&CK kill chain mapping, severity scoring, and specific containment recommendations.
 
 To prove it works, we built a realistic simulated environment: a **5-stage attack chain** (phishing, PowerShell C2, credential dumping, lateral movement, data exfiltration) buried in **80+ benign noise events**. The agent finds the needle in the haystack — every time.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  Elastic Agent Builder                    │
-│                                                          │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │  ES|QL   │  │   Search     │  │    Workflow        │  │
-│  │  Tools   │  │   Tools      │  │    Tools           │  │
-│  │          │  │              │  │                    │  │
-│  │• Correl. │  │• IOC Lookup  │  │• Incident Record   │  │
-│  │• Lateral │  │• MITRE Map   │  │• Severity Score    │  │
-│  │• Beacon  │  │• Historical  │  │• Containment Recs  │  │
-│  │• Process │  │  Correlation │  │                    │  │
-│  └────┬─────┘  └──────┬───────┘  └────────┬──────────┘  │
-│       │               │                   │              │
-│       └───────────────┼───────────────────┘              │
-│                       │                                  │
-│              ┌────────▼────────┐                         │
-│              │   Agent Brain   │                         │
-│              │  (LLM + System  │                         │
-│              │   Prompt with   │                         │
-│              │   DCO Triage    │                         │
-│              │   Reasoning)    │                         │
-│              └─────────────────┘                         │
-└─────────────────────────────────────────────────────────┘
-                        │
-         ┌──────────────┼──────────────┐
-         ▼              ▼              ▼
-┌─────────────┐ ┌─────────────┐ ┌──────────────┐
-│  security-  │ │  threat-    │ │  incident-   │
-│  alerts     │ │  intel      │ │  log         │
-│  (ES index) │ │  (ES index) │ │  (ES index)  │
-└─────────────┘ └─────────────┘ └──────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Elastic Agent Builder                       │
+│                                                               │
+│  ┌─────────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │  ES|QL Tools (5) │  │ Search Tool  │  │ Workflow Tool  │  │
+│  │                  │  │              │  │                │  │
+│  │ • Correlation    │  │ • IOC Lookup │  │ • Incident     │  │
+│  │ • Beaconing      │  │   (Hybrid    │  │   Logging &    │  │
+│  │ • Lateral Move   │  │   Semantic + │  │   Severity     │  │
+│  │ • Process Chain  │  │   Keyword)   │  │   Scoring      │  │
+│  │ • Priv Escalation│  │              │  │                │  │
+│  └────────┬─────────┘  └──────┬───────┘  └───────┬────────┘  │
+│           │                   │                   │           │
+│           └───────────────────┼───────────────────┘           │
+│                               │                               │
+│                  ┌────────────▼────────────┐                  │
+│                  │      Agent Brain        │                  │
+│                  │  6-Step Reasoning Chain: │                  │
+│                  │  Correlate → Enrich →   │                  │
+│                  │  Detect → Forensic →    │                  │
+│                  │  Score → Report         │                  │
+│                  └─────────────────────────┘                  │
+└──────────────────────────────────────────────────────────────┘
+                               │
+            ┌──────────────────┼──────────────────┐
+            ▼                  ▼                  ▼
+   ┌─────────────────┐ ┌─────────────┐ ┌──────────────────┐
+   │  security-alerts │ │ threat-intel │ │  incident-log    │
+   │  (~105 events)   │ │  (18 IOCs)   │ │  (triage reports)│
+   │   ECS-mapped     │ │ MITRE ATT&CK │ │  auto-generated  │
+   └─────────────────┘ └─────────────┘ └──────────────────┘
 ```
 
 ## Demo Video
 
-> :movie_camera: [Demo video coming soon — link will be added before submission]
+> [Demo Video on YouTube](https://youtu.be/PLACEHOLDER) — 3-minute walkthrough of the agent performing autonomous triage
 
 ## Live Dashboard
 
-> :globe_with_meridians: **[https://frontend-drab-xi-56.vercel.app](https://frontend-drab-xi-56.vercel.app/dashboard)** — deployed on Vercel
+> **[https://frontend-drab-xi-56.vercel.app/dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** — deployed on Vercel, querying live Elasticsearch data
+
+## Devpost Submission
+
+> [Devpost Submission](https://devpost.com/software/dco-threat-triage-agent)
 
 ## Tech Stack
 
@@ -287,15 +293,15 @@ The agent harness enforces defense-in-depth security:
 
 ## Features We Liked
 
-- **ES|QL for threat hunting** — ES|QL's pipe-based syntax is incredibly natural for security analysts. Writing correlated event queries felt like writing SPL or KQL but with better performance.
-- **Agent Builder's tool system** — Wiring up ES|QL, Search, and Workflow tools into a single agent was straightforward and powerful. The ability to chain tools in a reasoning loop is what makes this a true triage agent, not just a dashboard.
-- **Hybrid search for threat intel** — Combining keyword and semantic search for IOC lookup means the agent can find related threats even when exact indicators don't match.
+- **ES|QL for threat hunting is a game-changer** -- ES|QL's pipe-based syntax is incredibly natural for security analysts. Writing correlated event queries felt like writing SPL or KQL but with better performance. The ability to parameterize queries and expose them as Agent Builder tools means any ES|QL query can become an autonomous capability.
+- **Agent Builder's tool orchestration** -- Wiring up ES|QL, Search, and Workflow tools into a single agent was straightforward and powerful. The agent autonomously decides which tool to call next based on what it learned from the previous one -- that reasoning chain is what elevates this from a dashboard into a true triage agent.
+- **Hybrid search for threat intel** -- Combining keyword and semantic search for IOC lookup means the agent can find related threats even when exact indicators don't match. A query for "credential dumping" surfaces LSASS-related IOCs alongside hash-based matches, giving the agent broader threat context.
 
 ## Challenges
 
-- Designing realistic simulated attack data that demonstrates the agent's capabilities without being trivially solvable
-- Balancing the agent's autonomy with security constraints — the bash allowlist needed careful tuning
-- Ensuring ES|QL queries are performant across time-series data at scale
+- **Realistic attack simulation** -- Designing a 5-stage MITRE ATT&CK attack chain buried in 80+ benign noise events that demonstrates the agent's pattern-finding capabilities without being trivially solvable required careful calibration of event timestamps, severities, and process trees.
+- **Security vs. autonomy tradeoff** -- The autonomous harness gives the agent bash access to set up Elasticsearch indices, which required building a PreToolUse hook with a strict command allowlist and blocked-pattern filter to prevent dangerous operations while still enabling productive work.
+- **ES|QL query design at scale** -- Tuning beaconing detection thresholds (e.g., `avg_interval_seconds < 600`) and time-bucketed aggregations to be both performant and accurate across time-series data required multiple iterations of testing against realistic event volumes.
 
 ## License
 
@@ -303,7 +309,10 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## Links
 
+- [Devpost Submission](https://devpost.com/software/dco-threat-triage-agent)
+- [Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)
 - [Elasticsearch Agent Builder Hackathon](https://elasticsearch.devpost.com)
+- [Elastic Agent Builder Docs](https://www.elastic.co/docs/explore-analyze/ai-features/elastic-agent-builder)
 - [Elastic Cloud Registration](https://cloud.elastic.co/registration?cta=agentbuilderhackathon)
 - [MITRE ATT&CK Framework](https://attack.mitre.org/)
 

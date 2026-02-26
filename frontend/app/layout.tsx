@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import Sidebar from "@/components/layout/Sidebar";
+import TopNav from "@/components/layout/TopNav";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans" });
-const jetBrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
-
 export const metadata: Metadata = {
-  title: "DCO Threat Triage Dashboard",
+  title: "DCO Threat Triage — Elastic Agent Builder",
   description:
-    "Security operations dashboard for the DCO Threat Triage Agent — Elasticsearch Agent Builder Hackathon",
+    "Autonomous AI agent for security alert triage — built with Elastic Agent Builder for the Elasticsearch Hackathon",
 };
 
 export default function RootLayout({
@@ -18,10 +14,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} font-sans`}>
-        <Sidebar />
-        <main className="ml-[18rem] min-h-screen p-8 pr-12 w-[calc(100%-18rem)] relative z-10">{children}</main>
+    <html lang="en">
+      <body className="font-sans">
+        <TopNav />
+        <main className="pt-20 px-6 md:px-12 lg:px-16 max-w-[1440px] mx-auto pb-24">
+          {children}
+        </main>
       </body>
     </html>
   );

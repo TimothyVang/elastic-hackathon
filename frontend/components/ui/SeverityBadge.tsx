@@ -1,10 +1,10 @@
 import { clsx } from "clsx";
 
 const SEVERITY_STYLES: Record<string, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/30",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  low: "bg-green-500/15 text-green-400 border-green-500/30",
+  critical: "bg-accent-red/10 text-accent-red border-accent-red/30",
+  high: "bg-accent-orange/10 text-accent-orange border-accent-orange/40",
+  medium: "bg-accent-pink/10 text-accent-pink border-accent-pink/30",
+  low: "bg-primary/5 text-muted border-primary/15",
 };
 
 export default function SeverityBadge({
@@ -16,8 +16,8 @@ export default function SeverityBadge({
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border",
-        SEVERITY_STYLES[level] || "bg-gray-500/15 text-gray-400 border-gray-500/30"
+        "inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] border",
+        SEVERITY_STYLES[level] || "bg-primary/5 text-muted/50 border-primary/10"
       )}
     >
       {level}

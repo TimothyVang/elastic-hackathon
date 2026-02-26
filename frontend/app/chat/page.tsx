@@ -1,12 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, AlertTriangle } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  AlertTriangle,
+  Database,
+  Search,
+  Zap,
+  ExternalLink,
+} from "lucide-react";
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
+  toolsUsed?: string[];
 }
 
 const SUGGESTED_PROMPTS = [
@@ -17,35 +27,13 @@ const SUGGESTED_PROMPTS = [
   "Look up threat intel for 198.51.100.23",
 ];
 
-// Pre-recorded triage result shown as fallback when Agent Builder API is unavailable
-const FALLBACK_TRIAGE = `## DCO Triage Report — Multi-Stage Intrusion from 10.10.15.42
-
-**Triage Result: TRUE POSITIVE — Severity: CRITICAL**
-
-### Kill Chain Reconstruction
-
-| Phase | MITRE Technique | Evidence |
-|-------|----------------|----------|
-| Initial Access | T1566 (Phishing) | Macro-enabled attachment \`Q4_Report.xlsm\` delivered to jpark@corpsec.local |
-| Execution + C2 | T1059 + T1071 | PowerShell with Base64 encoding → beaconing to 198.51.100.23 every ~345s |
-| Credential Access | T1003 | LSASS memory dump via procdump.exe on WS-PC0142 |
-| Lateral Movement | T1021 | SMB auth to DC-01, FILE-01, DB-01, WEB-01 using harvested credentials |
-| Exfiltration | T1560 + T1041 | Data staged via 7z → exfil over HTTPS to 198.51.100.23 |
-
-### Threat Intel Matches
-- **198.51.100.23** — Known Lazarus Group C2 server (confidence: 95%)
-- **evil-update.darkops.net** — Malware distribution domain (confidence: 92%)
-- **a1b2c3d4...** — SHA-256 matches known PowerShell RAT dropper
-
-### Containment Recommendations
-1. **Isolate WS-PC0142** immediately — active C2 beaconing
-2. **Block 198.51.100.23** at network perimeter (all ports)
-3. **Force password reset** for jpark and all accounts used in lateral movement
-4. **Sweep** DC-01, FILE-01, DB-01, WEB-01 for persistence mechanisms
-5. **Preserve LSASS dump** as forensic evidence
-
-### Risk Score: 95/100
-Active multi-stage intrusion with confirmed credential theft and data exfiltration preparation. Immediate incident response required.`;
+const AGENT_TOOLS = [
+  { name: "Correlated Events", type: "ES|QL", icon: Database },
+  { name: "Lateral Movement", type: "ES|QL", icon: Database },
+  { name: "Beaconing Detection", type: "ES|QL", icon: Database },
+  { name: "Process Chain", type: "ES|QL", icon: Database },
+  { name: "Threat Intel", type: "Search", icon: Search },
+];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,16 +42,16 @@ export default function ChatPage() {
   const [agentAvailable, setAgentAvailable] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Check if Agent Builder API is available
   useEffect(() => {
-    fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "__ping__" }) })
-      .then((r) => {
-        setAgentAvailable(r.ok);
-      })
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "__ping__" }),
+    })
+      .then((r) => setAgentAvailable(r.ok))
       .catch(() => setAgentAvailable(false));
   }, []);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -87,61 +75,97 @@ export default function ChatPage() {
         body: JSON.stringify({ message: msg }),
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
       const assistantMsg: Message = {
         role: "assistant",
         content: data.response || "No response received.",
         timestamp: new Date(),
+        toolsUsed: data.toolsUsed || [],
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
-      // Fallback: show pre-recorded triage
-      const fallbackMsg: Message = {
+      const errorMsg: Message = {
         role: "assistant",
-        content: FALLBACK_TRIAGE,
+        content: "Connection to agent failed. Please check the Elastic Agent Builder configuration.",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, fallbackMsg]);
+      setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-48px)]">
-      {/* Header */}
-      <div className="shrink-0">
-        <h1 className="text-xl font-bold text-white">Agent Chat</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Interact with the DCO Triage Agent to investigate alerts
-        </p>
-        {agentAvailable === false && (
-          <div className="mt-2 flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            Agent Builder API unavailable — showing pre-recorded triage results
+    <div className="flex flex-col h-[calc(100vh-120px)]">
+      {/* Hero header */}
+      <div className="shrink-0 mb-6 relative">
+        {/* Blob */}
+        <div
+          className="absolute -top-16 -right-16 w-[300px] h-[300px] rounded-full pointer-events-none"
+          style={{
+            background: "#F8A348",
+            filter: "blur(120px)",
+            mixBlendMode: "multiply",
+            opacity: 0.1,
+          }}
+        />
+
+        <div className="relative z-10">
+          <h1 className="font-display font-bold text-[clamp(2rem,5vw,3.5rem)] uppercase tracking-[-0.05em] leading-[0.85] text-primary">
+            Agent<br />
+            <span className="text-accent-red ml-[5vw]">Chat</span>
+          </h1>
+          <p className="mt-3 text-muted/60 text-[14px] max-w-[500px] leading-relaxed">
+            Interact with the DCO Triage Agent — powered by Elastic Agent Builder with 5 tools for autonomous threat analysis.
+          </p>
+
+          {/* Agent tools mini display */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {AGENT_TOOLS.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <div
+                  key={tool.name}
+                  className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-muted/40 border border-divider px-2 py-1 bg-base-dark/30"
+                >
+                  <Icon className="w-3 h-3" />
+                  {tool.name}
+                </div>
+              );
+            })}
           </div>
-        )}
+
+          {agentAvailable === false && (
+            <div className="mt-3 flex items-center gap-2 text-[11px] text-accent-orange bg-accent-orange/8 border border-accent-orange/20 px-3 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Agent Builder API unavailable — using local triage with same ES|QL tools
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Messages area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto mt-4 space-y-4 pr-1"
+        className="flex-1 overflow-y-auto space-y-4 pr-1 border-t border-divider pt-4"
       >
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <Bot className="w-12 h-12 text-blue-400/40 mb-4" />
-            <p className="text-gray-500 text-sm mb-6">
-              Ask the DCO Triage Agent to investigate security alerts
+            <div className="w-14 h-14 bg-primary flex items-center justify-center mb-4">
+              <Bot className="w-7 h-7 text-base" />
+            </div>
+            <p className="text-muted/50 text-sm mb-8 max-w-sm">
+              Ask the DCO Triage Agent to investigate security alerts, detect attack patterns, or look up threat intelligence.
             </p>
             <div className="grid grid-cols-1 gap-2 max-w-lg w-full">
               {SUGGESTED_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => sendMessage(prompt)}
-                  className="text-left text-xs text-gray-400 bg-surface-raised border border-border-subtle rounded-lg px-4 py-2.5 hover:border-blue-500/40 hover:text-gray-300 transition-colors"
+                  className="text-left text-[13px] text-muted/70 bg-base-dark/40 border border-divider px-4 py-3 hover:border-accent-red/30 hover:text-primary hover:shadow-brutal-sm hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all duration-200"
                 >
                   {prompt}
                 </button>
@@ -156,28 +180,39 @@ export default function ChatPage() {
             className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
           >
             {msg.role === "assistant" && (
-              <div className="shrink-0 w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-blue-400" />
+              <div className="shrink-0 w-8 h-8 bg-primary flex items-center justify-center">
+                <Bot className="w-4 h-4 text-base" />
               </div>
             )}
             <div
-              className={`max-w-[85%] rounded-lg px-4 py-3 text-sm ${
+              className={`max-w-[85%] px-4 py-3 text-sm ${
                 msg.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-surface-raised border border-border-subtle text-gray-300"
+                  ? "bg-primary text-base"
+                  : "bg-base-dark/60 border border-divider text-primary"
               }`}
             >
               {msg.role === "assistant" ? (
-                <div className="prose prose-invert prose-sm max-w-none [&_table]:text-xs [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_table]:border-collapse [&_th]:border [&_th]:border-border-subtle [&_td]:border [&_td]:border-border-subtle [&_th]:bg-surface-overlay/50 [&_pre]:bg-surface-overlay [&_code]:text-blue-400 [&_h2]:text-gray-200 [&_h3]:text-gray-300 [&_strong]:text-gray-200 whitespace-pre-wrap">
-                  {msg.content}
-                </div>
+                <div className="chat-prose whitespace-pre-wrap">{msg.content}</div>
               ) : (
                 msg.content
               )}
+              {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                <div className="mt-3 pt-2 border-t border-divider flex flex-wrap gap-1.5">
+                  <Zap className="w-3 h-3 text-accent-orange" />
+                  {msg.toolsUsed.map((tool) => (
+                    <span
+                      key={tool}
+                      className="text-[9px] font-bold uppercase tracking-[0.1em] text-accent-orange/70 bg-accent-orange/8 border border-accent-orange/15 px-1.5 py-0.5"
+                    >
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             {msg.role === "user" && (
-              <div className="shrink-0 w-7 h-7 rounded-lg bg-gray-700 flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-400" />
+              <div className="shrink-0 w-8 h-8 bg-muted/20 flex items-center justify-center">
+                <User className="w-4 h-4 text-muted" />
               </div>
             )}
           </div>
@@ -185,14 +220,13 @@ export default function ChatPage() {
 
         {loading && (
           <div className="flex gap-3">
-            <div className="shrink-0 w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-blue-400" />
+            <div className="shrink-0 w-8 h-8 bg-primary flex items-center justify-center">
+              <Bot className="w-4 h-4 text-base" />
             </div>
-            <div className="bg-surface-raised border border-border-subtle rounded-lg px-4 py-3">
-              <div className="flex gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-blue-400/60 animate-bounce" />
-                <div className="w-2 h-2 rounded-full bg-blue-400/60 animate-bounce [animation-delay:0.15s]" />
-                <div className="w-2 h-2 rounded-full bg-blue-400/60 animate-bounce [animation-delay:0.3s]" />
+            <div className="bg-base-dark/60 border border-divider px-4 py-3">
+              <div className="flex gap-2 items-center text-[11px] text-muted/50 uppercase tracking-[0.1em]">
+                <div className="w-2 h-2 bg-accent-red animate-pulse" />
+                Running agent tools...
               </div>
             </div>
           </div>
@@ -200,7 +234,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 pt-4 border-t border-border-subtle mt-4">
+      <div className="shrink-0 pt-4 border-t border-divider mt-4">
         <div className="flex gap-3">
           <input
             type="text"
@@ -209,15 +243,28 @@ export default function ChatPage() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             disabled={loading}
-            className="flex-1 bg-surface-raised border border-border-subtle rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            className="flex-1 bg-base-dark/50 border border-divider px-4 py-3 text-sm text-primary placeholder-muted/30 focus:outline-none focus:border-primary/40 disabled:opacity-50"
           />
           <button
             onClick={() => sendMessage()}
             disabled={loading || !input.trim()}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/30 text-white px-4 py-2.5 rounded-lg transition-colors"
+            className="btn-brutalist disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <Send className="w-4 h-4" />
+            <span className="relative z-10">
+              <Send className="w-4 h-4" />
+            </span>
           </button>
+        </div>
+        <div className="mt-2 flex items-center gap-3 text-[10px] text-muted/30 uppercase tracking-[0.1em]">
+          <ExternalLink className="w-3 h-3" />
+          <a
+            href={process.env.NEXT_PUBLIC_KIBANA_URL || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-accent-red transition-colors"
+          >
+            Open agent in Kibana
+          </a>
         </div>
       </div>
     </div>

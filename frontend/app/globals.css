@@ -1,49 +1,104 @@
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&f[]=satoshi@300,400,500,700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --base: #E4E2DD;
+  --base-dark: #D9D6D0;
+  --primary: #1E1E1E;
+  --accent-red: #DB4A2B;
+  --accent-orange: #F8A348;
+  --accent-pink: #FF89A9;
+  --muted: #444444;
+}
+
 body {
-  @apply bg-surface text-gray-100 antialiased overflow-x-hidden;
-  background-image: 
-    linear-gradient(to right, rgba(0, 240, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-attachment: fixed;
+  background-color: var(--base);
+  color: var(--primary);
+  font-family: 'Satoshi', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+::selection {
+  background-color: var(--accent-red);
+  color: white;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--base); }
+::-webkit-scrollbar-thumb { background: var(--accent-red); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #c4401f; }
+
+/* Slide-up entrance animation */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-slide-up-d1 { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
+.animate-slide-up-d2 { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; opacity: 0; }
+.animate-slide-up-d3 { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
+.animate-slide-up-d4 { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; opacity: 0; }
+.animate-slide-up-d5 { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards; opacity: 0; }
+.animate-slide-up-d6 { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards; opacity: 0; }
+
+/* Blob pulse animation */
+@keyframes blob-pulse {
+  0%, 100% { opacity: 0.5; transform: translate(0, 0) scale(1); }
+  33% { opacity: 0.8; transform: translate(15px, -15px) scale(1.03); }
+  66% { opacity: 0.6; transform: translate(-10px, 10px) scale(0.98); }
+}
+@keyframes blob-pulse-alt {
+  0%, 100% { opacity: 0.4; transform: translate(0, 0) scale(1); }
+  50% { opacity: 0.7; transform: translate(-20px, 15px) scale(1.05); }
+}
+
+/* Interactive CTA button fill animation */
+.btn-brutalist {
   position: relative;
+  overflow: hidden;
+  background: var(--primary);
+  color: var(--base);
+  padding: 12px 28px;
+  font-family: 'Satoshi', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 0.3s ease-out;
 }
-
-body::before {
-  content: "";
-  position: fixed;
+.btn-brutalist::before {
+  content: '';
+  position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(circle at center, transparent 0%, #030509 100%);
-  pointer-events: none;
-  z-index: -1;
+  background: white;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-out;
+}
+.btn-brutalist:hover::before { transform: translateX(0); }
+.btn-brutalist:hover { color: var(--accent-red); }
+.btn-brutalist span { position: relative; z-index: 1; }
+
+/* Dash flow animation for kill chain connectors */
+@keyframes dash-flow {
+  to { stroke-dashoffset: -12; }
 }
 
-/* Custom styles for glowing text */
-.text-glow-cyan {
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
-}
-.text-glow-red {
-  text-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
-}
-
-/* Scrollbar styling for dark theme */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-surface;
-}
-::-webkit-scrollbar-thumb {
-  background-color: rgba(42, 47, 62, 0.5);
-  border-radius: 9999px;
-  border: 1px solid rgba(0, 240, 255, 0.2);
-  transition: background-color 0.15s;
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(0, 240, 255, 0.8);
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
-}
+/* Chat markdown styling (light theme) */
+.chat-prose h2 { color: var(--primary); font-size: 1rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
+.chat-prose h3 { color: var(--primary); font-size: 0.875rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+.chat-prose strong { color: var(--primary); font-weight: 700; }
+.chat-prose table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0.5rem 0; }
+.chat-prose th { text-align: left; padding: 0.375rem 0.5rem; border-bottom: 2px solid var(--primary); color: var(--primary); font-weight: 600; }
+.chat-prose td { padding: 0.375rem 0.5rem; border-bottom: 1px solid rgba(30, 30, 30, 0.12); color: var(--muted); }
+.chat-prose ul, .chat-prose ol { padding-left: 1.25rem; margin: 0.25rem 0; }
+.chat-prose li { color: var(--muted); font-size: 0.8125rem; margin: 0.125rem 0; }
+.chat-prose code { color: var(--accent-red); font-family: 'Satoshi', monospace; font-size: 0.8125rem; }
+.chat-prose hr { border-color: rgba(30, 30, 30, 0.12); margin: 0.75rem 0; }

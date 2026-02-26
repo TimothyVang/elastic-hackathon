@@ -8,21 +8,17 @@ import {
   CheckCircle,
   RefreshCw,
 } from "lucide-react";
-import { motion, type Variants } from "framer-motion";
 import StatCard from "@/components/dashboard/StatCard";
 import EventTimeline from "@/components/dashboard/EventTimeline";
 import SeverityDonut from "@/components/dashboard/SeverityDonut";
 import KillChainTimeline from "@/components/dashboard/KillChainTimeline";
+import AgentBuilderPanel from "@/components/dashboard/AgentBuilderPanel";
+import ArchitectureDiagram from "@/components/dashboard/ArchitectureDiagram";
 import SeverityBadge from "@/components/ui/SeverityBadge";
 import MitreBadge from "@/components/ui/MitreBadge";
-import {
-  StatCardSkeleton,
-  ChartSkeleton,
-  AlertListSkeleton,
-} from "@/components/ui/Skeleton";
 import type { DashboardStats, SecurityAlert } from "@/lib/types";
 
-const REFRESH_INTERVAL = 30; // seconds
+const REFRESH_INTERVAL = 30;
 
 interface KillChainStage {
   tactic: string;
@@ -30,19 +26,6 @@ interface KillChainStage {
   techniqueName: string;
   count: number;
 }
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
-};
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardStats | null>(null);
@@ -75,19 +58,15 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Initial load + auto-refresh
   useEffect(() => {
     fetchData();
-
     const refreshTimer = setInterval(() => {
       fetchData();
       setCountdown(REFRESH_INTERVAL);
     }, REFRESH_INTERVAL * 1000);
-
     return () => clearInterval(refreshTimer);
   }, [fetchData]);
 
-  // Countdown ticker
   useEffect(() => {
     timerRef.current = setInterval(() => {
       setCountdown((prev) => (prev <= 1 ? REFRESH_INTERVAL : prev - 1));
@@ -104,32 +83,30 @@ export default function DashboardPage() {
 
   if (loading && !data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8 animate-slide-up">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">Threat Command Center</h1>
-          <p className="text-sm font-mono text-cyber-cyan mt-1 uppercase tracking-widest opacity-80">
-            System Initializing...
-          </p>
+          <h1 className="font-display font-bold text-[clamp(2.5rem,8vw,6rem)] uppercase tracking-[-0.05em] leading-[0.8] text-primary">
+            Threat
+            <br />
+            <span className="ml-[10vw] text-accent-red">Command</span>
+          </h1>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <StatCardSkeleton key={i} />
+            <div key={i} className="h-32 bg-base-dark/40 border border-divider animate-pulse" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartSkeleton />
-          <ChartSkeleton />
-        </div>
-        <AlertListSkeleton />
       </div>
     );
   }
 
   if (error && !data) {
     return (
-      <div className="bg-cyber-red/10 border border-cyber-red/30 rounded-2xl p-6 text-cyber-red backdrop-blur-glass shadow-neon-red">
-        <p className="font-bold tracking-widest uppercase font-mono">System Failure</p>
-        <p className="text-sm mt-2 opacity-80 font-mono">{error}</p>
+      <div className="bg-accent-red/10 border-l-4 border-accent-red p-6 mt-8">
+        <p className="font-display font-bold uppercase tracking-wide text-accent-red">
+          System Failure
+        </p>
+        <p className="text-sm mt-2 text-muted">{error}</p>
       </div>
     );
   }
@@ -137,30 +114,55 @@ export default function DashboardPage() {
   if (!data) return null;
 
   return (
-    <motion.div
-      className="space-y-8"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div variants={itemVariants} className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow-md">Threat Command Center</h1>
-          <p className="text-xs font-mono text-cyber-cyan mt-1.5 uppercase tracking-widest opacity-80">
-            Live telemetry / Последние 24 часа
-          </p>
+    <div className="space-y-16">
+      {/* Hero header with blobs */}
+      <div className="relative animate-slide-up">
+        {/* Gradient blobs */}
+        <div
+          className="absolute -top-20 -left-20 w-[60vw] h-[60vw] max-w-[500px] max-h-[500px] rounded-full animate-blob-pulse pointer-events-none"
+          style={{
+            background: "#DB4A2B",
+            filter: "blur(140px)",
+            mixBlendMode: "multiply",
+            opacity: 0.15,
+          }}
+        />
+        <div
+          className="absolute -top-10 right-0 w-[40vw] h-[40vw] max-w-[400px] max-h-[400px] rounded-full animate-blob-pulse-alt pointer-events-none"
+          style={{
+            background: "#F8A348",
+            filter: "blur(140px)",
+            mixBlendMode: "multiply",
+            opacity: 0.12,
+          }}
+        />
+
+        <div className="relative z-10 flex items-end justify-between">
+          <div>
+            <h1 className="font-display font-bold text-[clamp(2.5rem,8vw,6rem)] uppercase tracking-[-0.05em] leading-[0.8] text-primary">
+              Threat
+              <br />
+              <span className="ml-[10vw] text-accent-red">Command</span>
+            </h1>
+            <p className="mt-4 text-muted/60 text-[15px] max-w-[400px] leading-relaxed">
+              Real-time security telemetry and autonomous threat triage powered by Elastic Agent Builder.
+            </p>
+          </div>
+
+          <button
+            onClick={manualRefresh}
+            className="btn-brutalist flex items-center gap-2 self-end"
+          >
+            <span className="relative z-10 flex items-center gap-2 text-[12px]">
+              <RefreshCw className="w-3.5 h-3.5 group-hover:animate-spin" />
+              <span className="tabular-nums w-4 text-right">{countdown}</span>s
+            </span>
+          </button>
         </div>
-        <button
-          onClick={manualRefresh}
-          className="flex items-center gap-2 text-xs font-mono text-cyber-cyan hover:text-white transition-all bg-cyber-cyan/10 hover:bg-cyber-cyan/20 hover:shadow-neon-cyan border border-cyber-cyan/30 rounded-xl px-4 py-2 group"
-        >
-          <RefreshCw className="w-3.5 h-3.5 group-hover:animate-spin" />
-          <span className="tabular-nums w-4 text-right">{countdown}</span>s
-        </button>
-      </motion.div>
+      </div>
 
       {/* Stat Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up-d1">
         <StatCard
           label="Total Alerts"
           value={data.totalAlerts}
@@ -181,46 +183,51 @@ export default function DashboardPage() {
           color="orange"
         />
         <StatCard
-          label="Med / Low"
-          value={`${data.mediumCount} / ${data.lowCount}`}
+          label="Medium / Low"
+          value={data.mediumCount + data.lowCount}
           icon={CheckCircle}
-          color="yellow"
+          color="green"
         />
-      </motion.div>
+      </div>
 
-      {/* Kill Chain Visualization */}
+      {/* Agent Builder Panel */}
+      <div className="animate-slide-up-d2">
+        <AgentBuilderPanel />
+      </div>
+
+      {/* Architecture Diagram */}
+      <div className="animate-slide-up-d3">
+        <ArchitectureDiagram />
+      </div>
+
+      {/* Kill Chain */}
       {killChain.length > 0 && (
-        <motion.div variants={itemVariants}>
+        <div className="animate-slide-up-d4">
           <KillChainTimeline stages={killChain} />
-        </motion.div>
+        </div>
       )}
 
       {/* Charts Row */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up-d5">
         <SeverityDonut data={data.severityCounts} />
         <EventTimeline data={data.eventsByHour} />
-      </motion.div>
+      </div>
 
       {/* Recent Alerts */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-surface-overlay/30 backdrop-blur-glass border border-border-subtle rounded-2xl p-6 relative overflow-hidden group hover:border-cyber-red/30 transition-colors duration-500"
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-cyber-red/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <h3 className="text-sm font-mono tracking-widest text-cyber-red uppercase mb-6 relative z-10 drop-shadow-[0_0_8px_rgba(255,0,60,0.5)]">
-          Recent High-Severity Alerts
-        </h3>
-        <div className="space-y-3 relative z-10">
+      <div className="animate-slide-up-d6">
+        {/* Category divider — massive type */}
+        <h2 className="font-display font-bold text-[clamp(1.5rem,4vw,3rem)] uppercase tracking-[-0.04em] leading-[0.85] text-primary/10 mb-6">
+          Recent Alerts
+        </h2>
+
+        <div className="space-y-2">
           {data.recentAlerts.map((alert: SecurityAlert, i: number) => (
-            <motion.div
+            <div
               key={i}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 + i * 0.05 }}
-              className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyber-red/30 hover:shadow-[0_0_15px_rgba(255,0,60,0.15)] transition-all duration-300 group/item"
+              className="flex items-start gap-4 p-4 border border-divider bg-base-dark/30 hover:shadow-brutal-sm hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all duration-200 group"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-200 truncate group-hover/item:text-white transition-colors">
+                <p className="text-sm font-medium text-primary group-hover:text-accent-red transition-colors truncate">
                   {alert.message || "No description"}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -230,21 +237,21 @@ export default function DashboardPage() {
                     techniqueName={alert.threat?.technique?.name}
                   />
                   {alert.host?.name && (
-                    <span className="text-[10px] font-mono tracking-wider text-gray-400 bg-surface/80 border border-border-subtle px-2 py-1 rounded-md shadow-sm">
+                    <span className="text-[10px] font-bold text-muted/50 bg-primary/5 border border-divider px-2 py-0.5 uppercase tracking-[0.1em]">
                       {alert.host.name}
                     </span>
                   )}
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-cyber-cyan/70 shrink-0 mt-1">
+              <span className="text-[10px] font-medium text-muted/40 shrink-0 mt-1 tracking-[0.08em]">
                 {alert["@timestamp"]
                   ? new Date(alert["@timestamp"]).toLocaleTimeString()
                   : ""}
               </span>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
