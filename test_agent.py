@@ -252,7 +252,7 @@ def test_agent_triage() -> bool:
 
         agents = resp.json()
         dco_agent = None
-        agent_list = agents if isinstance(agents, list) else agents.get("agents", agents.get("data", []))
+        agent_list = agents if isinstance(agents, list) else agents.get("results", agents.get("agents", agents.get("data", [])))
 
         for agent in agent_list:
             name = agent.get("name", "")
@@ -267,11 +267,11 @@ def test_agent_triage() -> bool:
         agent_id = dco_agent.get("id") or dco_agent.get("_id")
         console.print(f"  Found agent: [cyan]{dco_agent['name']}[/] (ID: {agent_id})")
 
-        # Send conversation to agent
+        # Send conversation to agent via converse API
         resp = requests.post(
-            f"{kibana_url}/api/agent_builder/agents/{agent_id}/conversations",
+            f"{kibana_url}/api/agent_builder/converse",
             headers=headers,
-            json={"messages": [{"role": "user", "content": prompt}]},
+            json={"input": prompt, "agent_id": agent_id},
             timeout=120,
         )
 
@@ -281,23 +281,15 @@ def test_agent_triage() -> bool:
 
         result = resp.json()
 
-        # Extract response
-        messages = result.get("messages", [])
+        # Extract response from converse API format
         tool_calls = []
-        agent_response = ""
+        agent_response = str(result.get("response", "") or "")
 
-        for msg in messages:
-            if msg.get("role") == "assistant":
-                content = msg.get("content", "")
-                if isinstance(content, str):
-                    agent_response += content
-                elif isinstance(content, list):
-                    for block in content:
-                        if isinstance(block, dict):
-                            if block.get("type") == "text":
-                                agent_response += block.get("text", "")
-                            elif block.get("type") == "tool_use":
-                                tool_calls.append(block.get("name", "unknown"))
+        for step in result.get("steps", []):
+            if step.get("type") == "tool_call":
+                tool_calls.append(step.get("tool_id", "unknown"))
+            elif step.get("type") == "response" and not agent_response:
+                agent_response = step.get("response", "")
 
         # Validate response
         console.print(f"\n  [bold]Agent Response Preview:[/]")
