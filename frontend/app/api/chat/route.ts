@@ -9,38 +9,11 @@ export const maxDuration = 60;
 // ---------------------------------------------------------------------------
 // System prompt — same 6-step reasoning chain as the Elastic Agent Builder agent
 // ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `You are the DCO Threat Triage Agent — an expert security analyst powered by Elastic Agent Builder tools. You investigate security alerts by querying Elasticsearch with ES|QL and cross-referencing threat intelligence.
+const SYSTEM_PROMPT = `You are the DCO Threat Triage Agent — a security analyst with ES|QL tools for Elasticsearch. Investigate alerts, correlate events, and provide actionable triage with MITRE ATT&CK mapping.
 
-## Your Tools
-You have 5 tools that query a live Elasticsearch cluster:
-1. **correlated_events_by_ip** — Timeline of all events from a source IP (24h window)
-2. **lateral_movement_detection** — Detect accounts authenticating to multiple hosts
-3. **beaconing_detection** — Find periodic outbound connections (C2 beaconing patterns)
-4. **process_chain_analysis** — Parent-child process trees on a specific host
-5. **threat_intel_lookup** — Search MITRE ATT&CK-mapped IOCs in the threat-intel index
+Key context: Attacker 10.10.15.42 (WS-PC0142), C2 server 198.51.100.23, victims DC-01/SRV-FILE01/SRV-DB01/SRV-WEB01. Attack chain: T1566→T1059+T1071→T1003→T1021→T1560+T1041.
 
-## Investigation Protocol
-Follow this 6-step reasoning chain:
-1. **Correlate** — Gather related events using correlated_events_by_ip
-2. **Enrich** — Cross-reference with threat_intel_lookup for known IOCs
-3. **Detect Patterns** — Check for beaconing (C2) and lateral movement
-4. **Forensic Analysis** — Examine process chains on suspicious hosts
-5. **Severity Scoring** — Assess risk: Critical/High/Medium/Low
-6. **Report** — Provide actionable triage with MITRE ATT&CK mapping
-
-## Key Context
-- Attacker IP: 10.10.15.42 (host WS-PC0142)
-- C2 server: 198.51.100.23 (external)
-- Victim hosts: DC-01, SRV-FILE01, SRV-DB01, SRV-WEB01
-- Attack chain: T1566 (phishing) → T1059+T1071 (execution+C2) → T1003 (credential dumping) → T1021 (lateral movement) → T1560+T1041 (exfiltration)
-
-## Response Style
-- Be conversational but precise. Explain findings like a senior SOC analyst briefing the team.
-- Use markdown formatting with headers, bold, and bullet points.
-- Always cite which tools you used and what data you found.
-- When you find something suspicious, explain the MITRE ATT&CK context.
-- If a query returns no results, say so and explain what that means.
-- Keep responses focused and actionable — this is a real-time triage, not a research paper.`;
+Use tools to investigate, then give a concise analysis with severity rating and recommendations. Use markdown formatting. Be brief.`;
 
 // ---------------------------------------------------------------------------
 // Tool definitions (OpenAI-compatible function calling schema)
@@ -151,7 +124,7 @@ async function executeTool(
         if (rows.length === 0) return `No events found for source IP ${ip} in the last 24 hours.`;
         return JSON.stringify({
           total_events: rows.length,
-          events: rows.slice(0, 30).map((r) => ({
+          events: rows.slice(0, 15).map((r) => ({
             timestamp: r["@timestamp"],
             message: r.message,
             severity: r["alert.severity"] || r["event.severity"],
@@ -221,7 +194,7 @@ async function executeTool(
         return JSON.stringify({
           host: hostname,
           total_processes: rows.length,
-          processes: rows.slice(0, 25).map((r) => ({
+          processes: rows.slice(0, 12).map((r) => ({
             timestamp: r["@timestamp"],
             process: r["process.name"],
             pid: r["process.pid"],
@@ -314,37 +287,51 @@ async function groqChat(messages: GroqMessage[]): Promise<{
     throw new Error("GROQ_API_KEY not configured. Get a free key at https://console.groq.com");
   }
 
-  const res = await fetch(GROQ_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages,
-      tools: TOOLS,
-      tool_choice: "auto",
-      temperature: 0.3,
-      max_tokens: 4096,
-    }),
-  });
+  const MAX_RETRIES = 3;
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Groq API error (${res.status}): ${errBody}`);
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const res = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        tools: TOOLS,
+        tool_choice: "auto",
+        temperature: 0.3,
+        max_tokens: 2048,
+      }),
+    });
+
+    // Retry on rate limit (429) with backoff
+    if (res.status === 429 && attempt < MAX_RETRIES - 1) {
+      const retryAfter = res.headers.get("retry-after");
+      const waitMs = retryAfter ? parseFloat(retryAfter) * 1000 : (attempt + 1) * 2000;
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`Groq API error (${res.status}): ${errBody}`);
+    }
+
+    const data = await res.json();
+    const choice = data.choices?.[0];
+    if (!choice) {
+      throw new Error("Groq returned no choices");
+    }
+
+    return {
+      content: choice.message?.content || null,
+      tool_calls: choice.message?.tool_calls,
+    };
   }
 
-  const data = await res.json();
-  const choice = data.choices?.[0];
-  if (!choice) {
-    throw new Error("Groq returned no choices");
-  }
-
-  return {
-    content: choice.message?.content || null,
-    tool_calls: choice.message?.tool_calls,
-  };
+  throw new Error("Groq API rate limited — please wait a moment and try again.");
 }
 
 // ---------------------------------------------------------------------------
