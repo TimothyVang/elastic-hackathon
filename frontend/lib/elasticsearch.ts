@@ -9,15 +9,16 @@ export function getESClient(): Client {
   const apiKey = process.env.ELASTIC_API_KEY || "";
   const esUrl = process.env.ELASTICSEARCH_URL || "";
 
-  if (cloudId && cloudId !== "your_cloud_id_here") {
+  // Prefer direct URL over Cloud ID — more reliable in serverless environments
+  if (esUrl && esUrl !== "https://your-deployment.es.cloud.es.io:9243") {
     client = new Client({
-      cloud: { id: cloudId },
+      node: esUrl,
       auth: { apiKey },
       requestTimeout: 30000,
     });
-  } else if (esUrl && esUrl !== "https://your-deployment.es.cloud.es.io:9243") {
+  } else if (cloudId && cloudId !== "your_cloud_id_here") {
     client = new Client({
-      node: esUrl,
+      cloud: { id: cloudId },
       auth: { apiKey },
       requestTimeout: 30000,
     });
