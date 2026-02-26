@@ -265,12 +265,12 @@ export default function ChatPage() {
         <div className="mt-2 flex items-center gap-3 text-[10px] text-muted/30 uppercase tracking-[0.1em]">
           <ExternalLink className="w-3 h-3" />
           <a
-            href={process.env.NEXT_PUBLIC_KIBANA_URL || "#"}
+            href={`${process.env.NEXT_PUBLIC_KIBANA_URL || ""}/app/agent_builder/agents/dco_triage_agent`}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-accent-red transition-colors"
           >
-            Open agent in Kibana
+            Open in Kibana
           </a>
         </div>
       </div>

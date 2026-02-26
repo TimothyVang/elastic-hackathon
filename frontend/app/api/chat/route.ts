@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
 import { getESClient } from "@/lib/elasticsearch";
 import { ESQL_QUERIES } from "@/lib/queries";
 import { esqlToRows } from "@/lib/utils";
@@ -46,9 +45,9 @@ Follow this 6-step reasoning chain:
 // ---------------------------------------------------------------------------
 // Tool definitions (OpenAI-compatible function calling schema)
 // ---------------------------------------------------------------------------
-const TOOLS: Groq.Chat.ChatCompletionTool[] = [
+const TOOLS = [
   {
-    type: "function",
+    type: "function" as const,
     function: {
       name: "correlated_events_by_ip",
       description:
@@ -66,7 +65,7 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     },
   },
   {
-    type: "function",
+    type: "function" as const,
     function: {
       name: "lateral_movement_detection",
       description:
@@ -79,7 +78,7 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     },
   },
   {
-    type: "function",
+    type: "function" as const,
     function: {
       name: "beaconing_detection",
       description:
@@ -92,7 +91,7 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     },
   },
   {
-    type: "function",
+    type: "function" as const,
     function: {
       name: "process_chain_analysis",
       description:
@@ -110,7 +109,7 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     },
   },
   {
-    type: "function",
+    type: "function" as const,
     function: {
       name: "threat_intel_lookup",
       description:
@@ -289,28 +288,63 @@ async function executeTool(
 }
 
 // ---------------------------------------------------------------------------
-// Groq client — lazy-initialized
+// Groq API via native fetch — avoids SDK compatibility issues in serverless
 // ---------------------------------------------------------------------------
-let groqClient: Groq | null = null;
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-function getGroqClient(): Groq {
-  if (groqClient) return groqClient;
+interface GroqToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+interface GroqMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: GroqToolCall[];
+  tool_call_id?: string;
+}
+
+async function groqChat(messages: GroqMessage[]): Promise<{
+  content: string | null;
+  tool_calls?: GroqToolCall[];
+}> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error("GROQ_API_KEY not configured. Get a free key at https://console.groq.com");
   }
-  groqClient = new Groq({ apiKey });
-  return groqClient;
-}
 
-// ---------------------------------------------------------------------------
-// Message type for conversation history
-// ---------------------------------------------------------------------------
-interface ChatMessage {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string;
-  tool_calls?: Groq.Chat.ChatCompletionMessageToolCall[];
-  tool_call_id?: string;
+  const res = await fetch(GROQ_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages,
+      tools: TOOLS,
+      tool_choice: "auto",
+      temperature: 0.3,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Groq API error (${res.status}): ${errBody}`);
+  }
+
+  const data = await res.json();
+  const choice = data.choices?.[0];
+  if (!choice) {
+    throw new Error("Groq returned no choices");
+  }
+
+  return {
+    content: choice.message?.content || null,
+    tool_calls: choice.message?.tool_calls,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +366,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Build conversation history
-    const messages: ChatMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
+    const messages: GroqMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
 
     // If frontend sends conversation history, include it
     if (Array.isArray(body.messages)) {
@@ -346,49 +380,31 @@ export async function POST(req: NextRequest) {
       messages.push({ role: "user", content: body.message });
     }
 
-    const groq = getGroqClient();
     const toolsUsed: string[] = [];
     const MAX_TOOL_ROUNDS = 8;
-    const historyLength = messages.length; // Track where history ends and new messages begin
+    const historyLength = messages.length;
 
     // Agentic tool use loop
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: messages as Groq.Chat.ChatCompletionMessageParam[],
-        tools: TOOLS,
-        tool_choice: "auto",
-        temperature: 0.3,
-        max_tokens: 4096,
-      });
-
-      const choice = completion.choices[0];
-      if (!choice) {
-        return NextResponse.json({
-          response: "No response generated. Please try again.",
-          toolsUsed,
-        });
-      }
-
-      const assistantMessage = choice.message;
+      const result = await groqChat(messages);
 
       // Add assistant message to history (for multi-round tool use)
       messages.push({
         role: "assistant",
-        content: assistantMessage.content || "",
-        tool_calls: assistantMessage.tool_calls,
+        content: result.content || "",
+        tool_calls: result.tool_calls,
       });
 
       // If no tool calls, we have our final response
-      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+      if (!result.tool_calls || result.tool_calls.length === 0) {
         return NextResponse.json({
-          response: assistantMessage.content || "No response generated.",
+          response: result.content || "No response generated.",
           toolsUsed,
         });
       }
 
       // Execute each tool call and feed results back
-      for (const toolCall of assistantMessage.tool_calls) {
+      for (const toolCall of result.tool_calls) {
         const fnName = toolCall.function.name;
         let fnArgs: Record<string, string> = {};
         try {
@@ -401,11 +417,11 @@ export async function POST(req: NextRequest) {
           toolsUsed.push(fnName);
         }
 
-        const result = await executeTool(fnName, fnArgs);
+        const toolResult = await executeTool(fnName, fnArgs);
 
         messages.push({
           role: "tool",
-          content: result,
+          content: toolResult,
           tool_call_id: toolCall.id,
         });
       }
@@ -425,12 +441,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
-
-    // Provide a helpful message for common errors
-    if (errorMsg.includes("GROQ_API_KEY")) {
-      return NextResponse.json({ error: errorMsg }, { status: 500 });
-    }
-
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }
