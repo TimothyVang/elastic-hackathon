@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Sidebar from "@/components/layout/Sidebar";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans" });
+const jetBrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "DCO Threat Triage Dashboard",
@@ -18,9 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className}>
+      <body className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} font-sans`}>
         <Sidebar />
-        <main className="ml-56 min-h-screen p-6">{children}</main>
+        <main className="ml-[18rem] min-h-screen p-8 pr-12 w-[calc(100%-18rem)] relative z-10">{children}</main>
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import {
   CheckCircle,
   RefreshCw,
 } from "lucide-react";
+import { motion, type Variants } from "framer-motion";
 import StatCard from "@/components/dashboard/StatCard";
 import EventTimeline from "@/components/dashboard/EventTimeline";
 import SeverityDonut from "@/components/dashboard/SeverityDonut";
@@ -29,6 +30,19 @@ interface KillChainStage {
   techniqueName: string;
   count: number;
 }
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+};
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardStats | null>(null);
@@ -92,17 +106,17 @@ export default function DashboardPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-white">Security Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Overview of security alerts from the last 24 hours
+          <h1 className="text-2xl font-bold text-white tracking-wide">Threat Command Center</h1>
+          <p className="text-sm font-mono text-cyber-cyan mt-1 uppercase tracking-widest opacity-80">
+            System Initializing...
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <StatCardSkeleton key={i} />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ChartSkeleton />
           <ChartSkeleton />
         </div>
@@ -113,9 +127,9 @@ export default function DashboardPage() {
 
   if (error && !data) {
     return (
-      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-red-400">
-        <p className="font-medium">Failed to load dashboard</p>
-        <p className="text-sm mt-1 text-red-400/70">{error}</p>
+      <div className="bg-cyber-red/10 border border-cyber-red/30 rounded-2xl p-6 text-cyber-red backdrop-blur-glass shadow-neon-red">
+        <p className="font-bold tracking-widest uppercase font-mono">System Failure</p>
+        <p className="text-sm mt-2 opacity-80 font-mono">{error}</p>
       </div>
     );
   }
@@ -123,25 +137,30 @@ export default function DashboardPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <motion.div
+      className="space-y-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={itemVariants} className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Security Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Overview of security alerts from the last 24 hours
+          <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow-md">Threat Command Center</h1>
+          <p className="text-xs font-mono text-cyber-cyan mt-1.5 uppercase tracking-widest opacity-80">
+            Live telemetry / Последние 24 часа
           </p>
         </div>
         <button
           onClick={manualRefresh}
-          className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors bg-surface-raised border border-border-subtle rounded-lg px-3 py-1.5"
+          className="flex items-center gap-2 text-xs font-mono text-cyber-cyan hover:text-white transition-all bg-cyber-cyan/10 hover:bg-cyber-cyan/20 hover:shadow-neon-cyan border border-cyber-cyan/30 rounded-xl px-4 py-2 group"
         >
-          <RefreshCw className="w-3 h-3" />
-          <span className="font-mono tabular-nums w-4 text-right">{countdown}</span>s
+          <RefreshCw className="w-3.5 h-3.5 group-hover:animate-spin" />
+          <span className="tabular-nums w-4 text-right">{countdown}</span>s
         </button>
-      </div>
+      </motion.div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="Total Alerts"
           value={data.totalAlerts}
@@ -150,71 +169,82 @@ export default function DashboardPage() {
           subtext="Last 24 hours"
         />
         <StatCard
-          label="Critical"
+          label="Critical Threats"
           value={data.criticalCount}
           icon={AlertTriangle}
           color="red"
         />
         <StatCard
-          label="High"
+          label="High Severity"
           value={data.highCount}
           icon={AlertCircle}
           color="orange"
         />
         <StatCard
-          label="Medium / Low"
+          label="Med / Low"
           value={`${data.mediumCount} / ${data.lowCount}`}
           icon={CheckCircle}
           color="yellow"
         />
-      </div>
+      </motion.div>
 
       {/* Kill Chain Visualization */}
-      {killChain.length > 0 && <KillChainTimeline stages={killChain} />}
+      {killChain.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <KillChainTimeline stages={killChain} />
+        </motion.div>
+      )}
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SeverityDonut data={data.severityCounts} />
         <EventTimeline data={data.eventsByHour} />
-      </div>
+      </motion.div>
 
       {/* Recent Alerts */}
-      <div className="bg-surface-raised border border-border-subtle rounded-xl p-5">
-        <h3 className="text-sm font-medium text-gray-400 mb-4">
+      <motion.div
+        variants={itemVariants}
+        className="bg-surface-overlay/30 backdrop-blur-glass border border-border-subtle rounded-2xl p-6 relative overflow-hidden group hover:border-cyber-red/30 transition-colors duration-500"
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-cyber-red/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <h3 className="text-sm font-mono tracking-widest text-cyber-red uppercase mb-6 relative z-10 drop-shadow-[0_0_8px_rgba(255,0,60,0.5)]">
           Recent High-Severity Alerts
         </h3>
-        <div className="space-y-2">
+        <div className="space-y-3 relative z-10">
           {data.recentAlerts.map((alert: SecurityAlert, i: number) => (
-            <div
+            <motion.div
               key={i}
-              className="flex items-start gap-3 p-3 rounded-lg bg-surface-overlay/40 hover:bg-surface-overlay transition-colors"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 + i * 0.05 }}
+              className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyber-red/30 hover:shadow-[0_0_15px_rgba(255,0,60,0.15)] transition-all duration-300 group/item"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-200 truncate">
+                <p className="text-sm font-medium text-gray-200 truncate group-hover/item:text-white transition-colors">
                   {alert.message || "No description"}
                 </p>
-                <div className="flex flex-wrap gap-2 mt-1.5">
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   <SeverityBadge severity={alert.alert?.severity} />
                   <MitreBadge
                     techniqueId={alert.threat?.technique?.id}
                     techniqueName={alert.threat?.technique?.name}
                   />
                   {alert.host?.name && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-[10px] font-mono tracking-wider text-gray-400 bg-surface/80 border border-border-subtle px-2 py-1 rounded-md shadow-sm">
                       {alert.host.name}
                     </span>
                   )}
                 </div>
               </div>
-              <span className="text-xs text-gray-600 shrink-0">
+              <span className="text-[10px] font-mono text-cyber-cyan/70 shrink-0 mt-1">
                 {alert["@timestamp"]
                   ? new Date(alert["@timestamp"]).toLocaleTimeString()
                   : ""}
               </span>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
