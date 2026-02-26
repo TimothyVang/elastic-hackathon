@@ -269,8 +269,37 @@ AGENT_DEFINITION = {
 
 # ── API Functions ─────────────────────────────────────────────────────
 
+def upsert_tool(kibana_url: str, headers: dict, payload: dict) -> dict:
+    """Create or update a tool in Agent Builder (POST, then PUT if exists)."""
+    tool_id = payload["id"]
+
+    resp = requests.post(
+        f"{kibana_url}/api/agent_builder/tools",
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+
+    if resp.status_code in (200, 201):
+        return resp.json()
+
+    # If tool already exists, update it via PUT (strip `id` and `type` from body)
+    if resp.status_code == 400 and "already exists" in resp.text:
+        put_payload = {k: v for k, v in payload.items() if k not in ("id", "type")}
+        resp = requests.put(
+            f"{kibana_url}/api/agent_builder/tools/{tool_id}",
+            headers=headers,
+            json=put_payload,
+            timeout=30,
+        )
+        if resp.status_code in (200, 201):
+            return resp.json()
+
+    return {"error": resp.text, "status": resp.status_code}
+
+
 def create_esql_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
-    """Create an ES|QL tool in Agent Builder."""
+    """Create or update an ES|QL tool in Agent Builder."""
     payload = {
         "id": tool["id"],
         "type": "esql",
@@ -281,27 +310,20 @@ def create_esql_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
         },
     }
 
-    resp = requests.post(
-        f"{kibana_url}/api/agent_builder/tools",
-        headers=headers,
-        json=payload,
-        timeout=30,
-    )
+    result = upsert_tool(kibana_url, headers, payload)
 
-    if resp.status_code in (200, 201):
-        result = resp.json()
-        console.print(f"  [green]Created ES|QL tool:[/] {tool['id']}")
-        return result
+    if "error" not in result:
+        console.print(f"  [green]OK[/] ES|QL tool: {tool['id']}")
     else:
         console.print(
-            f"  [red]Failed to create ES|QL tool {tool['id']}:[/] "
-            f"{resp.status_code} — {resp.text[:200]}"
+            f"  [red]FAIL[/] ES|QL tool {tool['id']}: "
+            f"{result.get('status', '?')} — {str(result.get('error', ''))[:200]}"
         )
-        return {"error": resp.text, "status": resp.status_code}
+    return result
 
 
 def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
-    """Create an index_search tool in Agent Builder."""
+    """Create or update an index_search tool in Agent Builder."""
     payload = {
         "id": tool["id"],
         "type": "index_search",
@@ -311,27 +333,20 @@ def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
         },
     }
 
-    resp = requests.post(
-        f"{kibana_url}/api/agent_builder/tools",
-        headers=headers,
-        json=payload,
-        timeout=30,
-    )
+    result = upsert_tool(kibana_url, headers, payload)
 
-    if resp.status_code in (200, 201):
-        result = resp.json()
-        console.print(f"  [green]Created Search tool:[/] {tool['id']}")
-        return result
+    if "error" not in result:
+        console.print(f"  [green]OK[/] Search tool: {tool['id']}")
     else:
         console.print(
-            f"  [red]Failed to create Search tool {tool['id']}:[/] "
-            f"{resp.status_code} — {resp.text[:200]}"
+            f"  [red]FAIL[/] Search tool {tool['id']}: "
+            f"{result.get('status', '?')} — {str(result.get('error', ''))[:200]}"
         )
-        return {"error": resp.text, "status": resp.status_code}
+    return result
 
 
 def create_workflow_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
-    """Create a workflow tool in Agent Builder."""
+    """Create or update a workflow tool in Agent Builder."""
     payload = {
         "id": tool["id"],
         "type": "workflow",
@@ -341,31 +356,25 @@ def create_workflow_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
         },
     }
 
-    resp = requests.post(
-        f"{kibana_url}/api/agent_builder/tools",
-        headers=headers,
-        json=payload,
-        timeout=30,
-    )
+    result = upsert_tool(kibana_url, headers, payload)
 
-    if resp.status_code in (200, 201):
-        result = resp.json()
-        console.print(f"  [green]Created Workflow tool:[/] {tool['id']}")
-        return result
+    if "error" not in result:
+        console.print(f"  [green]OK[/] Workflow tool: {tool['id']}")
     else:
         console.print(
-            f"  [yellow]WARN — Workflow tool {tool['id']} not created:[/] "
-            f"{resp.status_code} — {resp.text[:200]}\n"
+            f"  [yellow]WARN[/] Workflow tool {tool['id']}: "
+            f"{result.get('status', '?')} — {str(result.get('error', ''))[:200]}\n"
             f"  [dim](This is expected if the Elastic Workflow '{tool['workflow_id']}' "
             f"has not been created in Kibana yet.)[/]"
         )
-        return {"error": resp.text, "status": resp.status_code}
+    return result
 
 
 def create_agent(kibana_url: str, headers: dict, agent_def: dict, tool_ids: list[str]) -> dict:
-    """Create a custom agent in Agent Builder with all tools wired."""
+    """Create or update a custom agent in Agent Builder with all tools wired."""
+    agent_id = agent_def["id"]
     payload = {
-        "id": agent_def["id"],
+        "id": agent_id,
         "name": agent_def["name"],
         "description": agent_def["description"],
         "configuration": {
@@ -384,12 +393,26 @@ def create_agent(kibana_url: str, headers: dict, agent_def: dict, tool_ids: list
         result = resp.json()
         console.print(f"  [green]Created agent:[/] {agent_def['name']}")
         return result
-    else:
-        console.print(
-            f"  [red]Failed to create agent {agent_def['name']}:[/] "
-            f"{resp.status_code} — {resp.text[:200]}"
+
+    # If agent already exists, update it via PUT (strip `id` from body)
+    if resp.status_code == 400 and "already exists" in resp.text:
+        put_payload = {k: v for k, v in payload.items() if k not in ("id",)}
+        resp = requests.put(
+            f"{kibana_url}/api/agent_builder/agents/{agent_id}",
+            headers=headers,
+            json=put_payload,
+            timeout=30,
         )
-        return {"error": resp.text, "status": resp.status_code}
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            console.print(f"  [green]Updated agent:[/] {agent_def['name']}")
+            return result
+
+    console.print(
+        f"  [red]Failed agent {agent_def['name']}:[/] "
+        f"{resp.status_code} — {resp.text[:200]}"
+    )
+    return {"error": resp.text, "status": resp.status_code}
 
 
 def setup_agent_builder() -> None:
@@ -400,26 +423,32 @@ def setup_agent_builder() -> None:
 
     console.print(f"[dim]Kibana URL: {kibana_url}[/]\n")
 
-    # Create ES|QL tools
-    console.print("[bold cyan]Creating ES|QL tools...[/]")
+    # Create/update ES|QL tools
+    console.print("[bold cyan]Setting up ES|QL tools...[/]")
     tool_ids = []
 
     for tool in ESQL_TOOLS:
         result = create_esql_tool(kibana_url, headers, tool)
-        if "id" in result and "error" not in result:
-            tool_ids.append(result["id"])
+        if "error" not in result:
+            tool_ids.append(result.get("id", tool["id"]))
+        else:
+            # Even if upsert failed, include the ID if the tool already exists
+            if "already exists" in str(result.get("error", "")):
+                tool_ids.append(tool["id"])
 
-    # Create Search tool
-    console.print("\n[bold cyan]Creating Search tool...[/]")
+    # Create/update Search tool
+    console.print("\n[bold cyan]Setting up Search tool...[/]")
     result = create_search_tool(kibana_url, headers, SEARCH_TOOL)
-    if "id" in result and "error" not in result:
-        tool_ids.append(result["id"])
+    if "error" not in result:
+        tool_ids.append(result.get("id", SEARCH_TOOL["id"]))
+    elif "already exists" in str(result.get("error", "")):
+        tool_ids.append(SEARCH_TOOL["id"])
 
-    # Create Workflow tool
-    console.print("\n[bold cyan]Creating Workflow tool...[/]")
+    # Create/update Workflow tool
+    console.print("\n[bold cyan]Setting up Workflow tool...[/]")
     workflow_result = create_workflow_tool(kibana_url, headers, WORKFLOW_TOOL)
-    if "id" in workflow_result and "error" not in workflow_result:
-        tool_ids.append(workflow_result["id"])
+    if "error" not in workflow_result:
+        tool_ids.append(workflow_result.get("id", WORKFLOW_TOOL["id"]))
 
     # Create Agent
     console.print(f"\n[bold cyan]Creating DCO Triage Agent (wired to {len(tool_ids)} tools)...[/]")
