@@ -13,7 +13,7 @@
 ### Key Results
 
 - **Risk Score 95/100** — correctly identifies a Critical / True Positive APT intrusion
-- **18 autonomous reasoning steps** across 7 tools in under 2 minutes
+- **16 autonomous reasoning steps** across 7 tools in under 2 minutes
 - **5-stage MITRE ATT&CK kill chain** fully mapped (T1566 → T1059 → T1003 → T1021 → T1041)
 - **3 Elastic tool types** used: ES|QL, Index Search, and Workflow
 
@@ -208,7 +208,7 @@ Send natural language prompts to the DCO Triage Agent. It autonomously selects w
   <img src="screenshots/gallery/02-agent-chat.png" alt="Agent Chat — Live Triage Report with Attack Timeline" width="800" />
 </p>
 
-### Tool Usage & Execution Trace — 18 Autonomous Steps
+### Tool Usage & Execution Trace — 16 Autonomous Steps
 
 The agent used **all 7 Elastic Agent Builder tools** in a single investigation: `correlated_events_by_ip`, `process_chain_analysis`, `threat_intel_lookup`, `lateral_movement_detection`, `beaconing_detection`, `privilege_escalation_detection`, and `incident_triage_workflow`. The **Execution Trace** panel reveals every reasoning step — proving this is true autonomous analysis, not a canned response.
 
@@ -216,7 +216,7 @@ The agent used **all 7 Elastic Agent Builder tools** in a single investigation: 
   <img src="screenshots/gallery/02b-agent-tools.png" alt="Agent Response — Tool Badges and Containment Actions" width="800" />
 </p>
 <p align="center">
-  <img src="screenshots/gallery/02c-agent-trace.png" alt="Execution Trace — 18 Autonomous Reasoning Steps" width="800" />
+  <img src="screenshots/gallery/02c-agent-trace.png" alt="Execution Trace — 16 Autonomous Reasoning Steps" width="800" />
 </p>
 
 ---
