@@ -37,7 +37,7 @@ frontend/playwright-report/
 # Demo video output
 demo-video/
 
-# Claude Code / Agent SDK (development tooling)
+# Development tooling
 .claude/
 CLAUDE.md
 agent.py

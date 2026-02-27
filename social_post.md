@@ -20,7 +20,7 @@ Try the live dashboard: https://frontend-drab-xi-56.vercel.app/dashboard
 Code: https://github.com/TimothyVang/elastic-hackathon
 Submission: https://devpost.com/software/dco-threat-triage-agent
 
-Built with: Elastic Agent Builder, ES|QL, Elasticsearch hybrid search, MITRE ATT&CK, Next.js 14, Claude Agent SDK, Python.
+Built with: Elastic Agent Builder, ES|QL, Elasticsearch hybrid search, MITRE ATT&CK, Next.js 14, Python.
 
 #ElasticHackathon #Elasticsearch #CyberSecurity #AI #AgentBuilder #MITREATTACK
 
