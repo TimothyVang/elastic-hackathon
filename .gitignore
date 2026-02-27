@@ -26,8 +26,8 @@ Thumbs.db
 # Logs
 *.log
 
-# Screenshots — debug/temp only (demo/ and devpost/ are tracked)
-screenshots/debug/
+# Screenshots
+screenshots/
 .playwright-mcp/
 
 # Playwright test artifacts
