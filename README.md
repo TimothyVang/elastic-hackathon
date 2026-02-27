@@ -86,19 +86,12 @@ To prove it works, we built a realistic simulated environment: a **5-stage attac
 | Threat Framework | MITRE ATT&CK |
 | Dashboard | Next.js 14 + TypeScript + Tailwind CSS |
 | Charts | Recharts |
-| Build Harness | Claude Agent SDK (Python) |
 | Languages | Python 3.11+, TypeScript 5.7 |
 
 ## Project Structure
 
 ```
 elastic-hackathon/
-├── autonomous_agent_demo.py   # Main entry point — runs the agent harness
-├── agent.py                   # Initializer + Builder agent session logic
-├── client.py                  # Claude Agent SDK client configuration
-├── security.py                # Bash command allowlist & PreToolUse hook
-├── progress.py                # Task progress tracker (Rich tables)
-├── prompts.py                 # Prompt file loader
 ├── es_client.py               # Elasticsearch connection factory
 ├── create_indices.py          # Index mappings (security-alerts, threat-intel, incident-log)
 ├── load_attack_data.py        # 5-stage attack chain + 80 noise events
@@ -107,8 +100,7 @@ elastic-hackathon/
 ├── test_agent.py              # End-to-end triage test suite
 ├── requirements.txt           # Python dependencies
 ├── .env.example               # Template for .env
-├── frontend/                  # Next.js dashboard (see below)
-└── dco_agent_project/         # Generated project directory (created at runtime)
+└── frontend/                  # Next.js dashboard (see below)
 ```
 
 ### Frontend Dashboard
@@ -149,31 +141,12 @@ frontend/
 - **Connection Status** — live Elasticsearch health indicator in sidebar
 - **Loading Skeletons** — animated placeholders during data fetching
 
-## How It Works
-
-This project uses a **two-agent autonomous harness** (adapted from [coleam00/Linear-Coding-Agent-Harness](https://github.com/coleam00/Linear-Coding-Agent-Harness)):
-
-### Session 1: Initializer Agent
-- Verifies Elastic Cloud connectivity
-- Creates Elasticsearch index mappings (`security-alerts`, `threat-intel`, `incident-log`)
-- Loads a simulated 5-stage attack chain + 80 benign noise events
-- Loads MITRE ATT&CK-mapped threat intel IOCs
-- Scaffolds the Agent Builder configuration
-- Creates `task_tracker.json` with 17 features marked as "failing"
-
-### Session 2+: Builder Agent
-- Reads `task_tracker.json` to find the next failing task
-- Implements the feature (ES|QL tool, search tool, workflow, etc.)
-- Tests the implementation against Elasticsearch
-- Marks the task as "passing" and updates context
-
 ## Setup
 
 ### Prerequisites
 
 - Python 3.11+
 - An [Elastic Cloud](https://cloud.elastic.co/registration?cta=agentbuilderhackathon) account
-- Claude Agent SDK credentials (OAuth token or API key)
 
 ### Installation
 
@@ -198,10 +171,6 @@ cp .env.example .env
 | `ELASTIC_API_KEY` | Yes | Elasticsearch API key |
 | `ELASTICSEARCH_URL` | Alt | Direct Elasticsearch URL (if not using Cloud ID) |
 | `KIBANA_URL` | Yes | Kibana URL (for Agent Builder API) |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Yes* | OAuth token from `claude setup-token` |
-| `ANTHROPIC_API_KEY` | Yes* | Or use API key instead of OAuth |
-
-*One of `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` is required for the autonomous harness.
 
 ### Quick Start: Standalone Scripts
 
@@ -242,22 +211,6 @@ The dashboard requires the same Elasticsearch credentials as the backend. Set th
 - `ELASTIC_API_KEY`
 - `KIBANA_URL` (optional, for Agent Chat)
 
-### Running the Autonomous Harness
-
-```bash
-# Full run (initializer + builder iterations)
-python autonomous_agent_demo.py
-
-# Skip initialization (resume building)
-python autonomous_agent_demo.py --skip-init
-
-# Limit builder iterations
-python autonomous_agent_demo.py --max-iterations 5
-
-# Use a specific model
-python autonomous_agent_demo.py --model claude-sonnet-4-6
-```
-
 ## Elasticsearch Indices
 
 ### `security-alerts`
@@ -282,15 +235,6 @@ Agent-generated triage reports containing:
 - Severity assessment scores
 - Recommended containment actions
 
-## Security
-
-The agent harness enforces defense-in-depth security:
-
-1. **Bash allowlist** — Only approved commands can be executed (`security.py`)
-2. **PreToolUse hooks** — Every bash command is validated before execution
-3. **Blocked patterns** — Dangerous commands (fork bombs, `rm -rf /`, `sudo`, etc.) are always rejected
-4. **Filesystem restrictions** — Agent operations are restricted to the project directory
-
 ## Features We Liked
 
 - **ES|QL for threat hunting is a game-changer** -- ES|QL's pipe-based syntax is incredibly natural for security analysts. Writing correlated event queries felt like writing SPL or KQL but with better performance. The ability to parameterize queries and expose them as Agent Builder tools means any ES|QL query can become an autonomous capability.
@@ -300,7 +244,7 @@ The agent harness enforces defense-in-depth security:
 ## Challenges
 
 - **Realistic attack simulation** -- Designing a 5-stage MITRE ATT&CK attack chain buried in 80+ benign noise events that demonstrates the agent's pattern-finding capabilities without being trivially solvable required careful calibration of event timestamps, severities, and process trees.
-- **Security vs. autonomy tradeoff** -- The autonomous harness gives the agent bash access to set up Elasticsearch indices, which required building a PreToolUse hook with a strict command allowlist and blocked-pattern filter to prevent dangerous operations while still enabling productive work.
+- **Agent Builder API integration** -- Programmatically creating ES|QL tools, search tools, and workflow tools via the Kibana REST API required careful payload construction (named vs. positional params, upsert logic with POST/PUT fallback) and thorough testing against the Agent Builder endpoints.
 - **ES|QL query design at scale** -- Tuning beaconing detection thresholds (e.g., `avg_interval_seconds < 600`) and time-bucketed aggregations to be both performant and accurate across time-series data required multiple iterations of testing against realistic event volumes.
 
 ## License

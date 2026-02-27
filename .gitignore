@@ -36,3 +36,26 @@ frontend/playwright-report/
 
 # Demo video output
 demo-video/
+
+# Claude Code / Agent SDK (development tooling)
+.claude/
+CLAUDE.md
+agent.py
+autonomous_agent_demo.py
+client.py
+security.py
+coding_prompt.md
+continuation_task.md
+initializer_prompt.md
+initializer_task.md
+prompts.py
+progress.py
+dco_agent_project/
+demo_script.md
+
+# Playwright / recording
+frontend/playwright.config.ts
+frontend/tests/
+record-demo.ts
+package.json
+package-lock.json
