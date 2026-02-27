@@ -29,6 +29,8 @@ All of this happens through **7 custom tools** orchestrated by a single Agent Bu
 
 **[Watch the 3-minute demo on YouTube →](https://youtu.be/YOUR_VIDEO_ID_HERE)**
 
+![DCO Threat Triage Agent — Demo](demo.gif)
+
 The demo walks through the full system:
 
 | Timestamp | Scene | What You'll See |
