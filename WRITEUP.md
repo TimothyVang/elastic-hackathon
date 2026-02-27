@@ -34,7 +34,7 @@ The demo walks through the full system:
 | Timestamp | Scene | What You'll See |
 |-----------|-------|-----------------|
 | 0:00–0:05 | **Kibana — Agents List** | Agent Builder UI with `dco_triage_agent` and full system prompt |
-| 0:05–0:10 | **Kibana — 7 Active Tools** | Agent's Tools tab showing 7/24 tools wired to the DCO agent |
+| 0:05–0:10 | **Kibana — Agent Config** | DCO Triage Agent's full system prompt — 6-step reasoning chain |
 | 0:10–0:15 | **Kibana — Global Tools** | All 7 custom tools listed: beaconing_detection, correlated_events, etc. |
 | 0:15–0:19 | **Beaconing Detection** | Hunt page — 44 C2 beacons to 198.51.100.23 at 296s intervals |
 | 0:19–0:23 | **Lateral Movement** | Hunt page — attacker IP across 3 hosts, HIGH risk |
@@ -44,7 +44,7 @@ The demo walks through the full system:
 | 1:10–1:27 | **Agent Chat** | 7 tool badges, green "Agent Builder" indicator, typing triage prompt |
 | 1:27–1:41 | **Running Agent Tools** | Agent Builder processing (sped up 8×) — ES|QL queries executing |
 | 1:41–2:20 | **Triage Results** | Full structured report: TRUE POSITIVE, P1 Critical, Risk Score 95/100 |
-| 2:20–2:50 | **Execution Trace** | 18-step tool execution trace + 7 tool badges — autonomous orchestration proof |
+| 2:20–2:50 | **Execution Trace** | Threat Intel Context, 18-step execution trace, 7 tool badges — orchestration proof |
 
 The agent receives a single natural language prompt — *"Triage the latest critical alerts from 10.10.15.42"* — and autonomously runs multiple reasoning steps across all 7 tools to produce a complete investigation report in under 2 minutes. *(The loading section is sped up 8× in the demo to fit within 3 minutes.)*
 
