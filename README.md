@@ -5,7 +5,7 @@
 
 **DCO Threat Triage Agent** is an autonomous AI agent built entirely with **Elastic Agent Builder** that performs first-pass security alert triage — correlating events with ES|QL, hunting for attack patterns, and cross-referencing MITRE ATT&CK-mapped threat intelligence — so SOC analysts can focus on confirmed threats instead of drowning in noise.
 
-**[Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** | **[Devpost Submission](https://devpost.com/software/dco-threat-triage-agent)**
+**[Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** | **[Devpost Submission](https://devpost.com/software/soc-agent-7z80jq)**
 
 ---
 
@@ -268,7 +268,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## Links
 
-- [Devpost Submission](https://devpost.com/software/dco-threat-triage-agent)
+- [Devpost Submission](https://devpost.com/software/soc-agent-7z80jq)
 - [Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)
 - [Elasticsearch Agent Builder Hackathon](https://elasticsearch.devpost.com)
 - [Elastic Agent Builder Docs](https://www.elastic.co/docs/explore-analyze/ai-features/elastic-agent-builder)

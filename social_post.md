@@ -4,7 +4,7 @@
 
 Built a DCO Threat Triage Agent for the @elastic Agent Builder Hackathon -- 7 tools (ES|QL + Search + Workflow) that triage security alerts in 30 sec instead of 30 min. MITRE ATT&CK kill chain, C2 beaconing detection, and more. @elastic_devs
 
-https://devpost.com/software/dco-threat-triage-agent
+https://devpost.com/software/soc-agent-7z80jq
 
 ## LinkedIn Post
 
@@ -18,7 +18,7 @@ We simulated a realistic 5-stage MITRE ATT&CK attack chain (T1566 phishing throu
 
 Try the live dashboard: https://frontend-drab-xi-56.vercel.app/dashboard
 Code: https://github.com/TimothyVang/elastic-hackathon
-Submission: https://devpost.com/software/dco-threat-triage-agent
+Submission: https://devpost.com/software/soc-agent-7z80jq
 
 Built with: Elastic Agent Builder, ES|QL, Elasticsearch hybrid search, MITRE ATT&CK, Next.js 14, Python.
 
@@ -30,6 +30,6 @@ Built a DCO Threat Triage Agent for the Elastic Agent Builder Hackathon. It uses
 
 Live dashboard: https://frontend-drab-xi-56.vercel.app/dashboard
 GitHub: https://github.com/TimothyVang/elastic-hackathon
-Devpost: https://devpost.com/software/dco-threat-triage-agent
+Devpost: https://devpost.com/software/soc-agent-7z80jq
 
 #ElasticHackathon #Elasticsearch #CyberSecurity
