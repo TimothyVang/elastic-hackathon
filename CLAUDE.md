@@ -39,7 +39,11 @@ npm install                               # Install dependencies
 npm run dev                               # Dev server (localhost:3000)
 npm run build                             # Production build
 npm run lint                              # Lint
+npx playwright test                       # Run E2E tests (hits Vercel URL)
+npx playwright test --headed              # Run with visible browser
 ```
+
+Tests run against `https://frontend-drab-xi-56.vercel.app` (configured in `playwright.config.ts`).
 
 ## Architecture
 
@@ -66,7 +70,7 @@ Session handoff state lives in `dco_agent_project/`: `.elastic_project.json` (in
 
 ### Agent Builder Tools (Kibana API)
 
-`setup_agent_builder.py` creates 5 tools + 1 agent via `POST /api/agent_builder/tools` and `/api/agent_builder/agents`:
+`setup_agent_builder.py` creates 7 tools + 1 agent via `POST /api/agent_builder/tools` and `/api/agent_builder/agents`:
 
 | Tool | Type | Purpose |
 |------|------|---------|
@@ -74,19 +78,23 @@ Session handoff state lives in `dco_agent_project/`: `.elastic_project.json` (in
 | `lateral_movement_detection` | ES\|QL | Auth events across multiple hosts |
 | `beaconing_detection` | ES\|QL | Periodic outbound C2 patterns (avg interval < 600s) |
 | `process_chain_analysis` | ES\|QL | Parent-child process trees by hostname |
+| `privilege_escalation_detection` | ES\|QL | High-severity event clusters by host |
 | `threat_intel_lookup` | Search | Hybrid keyword+semantic IOC search on `threat-intel` index |
+| `incident_triage_workflow` | Workflow | Automated incident triage via Elastic Workflow |
 
 The DCO Triage Agent system prompt (`AGENT_SYSTEM_PROMPT` in `setup_agent_builder.py`) defines a 6-step reasoning chain: correlate → enrich with threat intel → detect patterns → forensic analysis → severity scoring → structured report.
 
 ### Frontend Dashboard
 
-`frontend/` is a Next.js 14 + TypeScript + Tailwind CSS dashboard that queries Elasticsearch directly. Key areas:
+`frontend/` is a Next.js 14 + TypeScript + Tailwind CSS dashboard that queries Elasticsearch directly. Deployed at `https://frontend-drab-xi-56.vercel.app`.
 
 - `lib/elasticsearch.ts` — ES client for the frontend
-- `lib/queries.ts` — ES|QL and search queries
+- `lib/queries.ts` — ES|QL and search queries (uses positional `?` params — see gotcha below)
 - `lib/types.ts` — TypeScript type definitions
-- Pages: `/dashboard`, `/alerts`, `/hunt`, `/intel`, `/incidents`
-- Components: `dashboard/` (stats, timeline, donut chart), `hunt/` (beaconing, correlation, process tree), `intel/` (IOC table), `ui/` (reusable badges and tables)
+- Pages (11): `/` (home), `/dashboard`, `/alerts`, `/chat`, `/hunt` (+ `/hunt/beaconing`, `/hunt/correlate`, `/hunt/lateral`, `/hunt/process`), `/intel`, `/incidents`
+- API routes (12): `health`, `dashboard`, `alerts`, `chat`, `hunt/beaconing`, `hunt/lateral`, `hunt/correlate`, `hunt/process`, `incidents`, `killchain`, `intel`, `agent-builder/status`
+- Key components: `AgentBuilderPanel` (live Kibana status), `ArchitectureDiagram` (SVG), `ExecutionTrace`, `BackendBadge`, `TopNav`
+- Chat route has `maxDuration: 120` for Vercel Pro tier (Agent Builder calls can take 60-90s)
 
 ## Key Data Points
 
@@ -107,8 +115,24 @@ Configured via `.env` (gitignored). See `.env.example` for the template. Critica
 
 **WARNING**: `.env` line 1 may contain a real GitHub PAT. Never use `git add -A` or `git add .env`.
 
+## Gotchas
 
-Here are all the Agent Builder documentation URLs:
+### ES|QL Parameter Syntax
+
+`setup_agent_builder.py` uses **named** params for Agent Builder tools:
+```sql
+WHERE source.ip == ?source_ip
+WHERE host.name == ?hostname
+```
+
+`frontend/lib/queries.ts` uses **positional** `?` for the ES JavaScript client:
+```sql
+WHERE source.ip == ?
+```
+
+These are NOT interchangeable. Using named params in the frontend causes HTTP 500 parsing errors. Using positional params in Agent Builder tool definitions breaks parameter binding.
+
+## Agent Builder Documentation URLs
 
 **Main & Getting Started**
 - Agent Builder Overview: https://www.elastic.co/docs/explore-analyze/ai-features/elastic-agent-builder
@@ -143,33 +167,3 @@ Here are all the Agent Builder documentation URLs:
 **Related**
 - Elastic Workflows: https://www.elastic.co/docs/explore-analyze/workflows
 - Configure LLM Connectors: https://www.elastic.co/docs/explore-analyze/ai-features/llm-guides/llm-connectors
-
-Here's a full breakdown of the hackathon rules and how to use Agent Builder:
-Hackathon Overview
-The Elasticsearch Agent Builder Hackathon asks you to build a multi-step AI agent that uses Elastic Agent Builder, combining a reasoning model with one or more of its built-in tools (Elastic Workflows, Search, or ES|QL) to automate real-world tasks. The total prize pool is $20,000.
-Deadline: February 27, 2026 at 1:00 PM EST — so you have about 2 days left.
-Winners announced: Around March 16, 2026.
-What You Must Build
-Your project must use a custom agent and custom tool within Elastic Agent Builder, work with data in Elasticsearch, and automate a clear business task or productivity improvement. It can be brand new or a significant update to an existing project.
-What You Must Submit
-A ~400-word description covering the problem solved, features used, and 2–3 things you liked or challenges you had. A ~3-minute demo video uploaded to YouTube/Vimeo (judges won't watch past 3 minutes). A public open-source code repository with an OSI-approved license containing all source code, agent instructions, custom queries, and workflows. For bonus points, share your project on social media and tag @elastic_devs or @elastic on X, then include the link in your submission.
-Judging Criteria
-Technical Execution (30%) — quality of code, use of Agent Builder and Elasticsearch. Potential Impact & Wow Factor (30%) — significance of the problem, novelty, usefulness. Demo Quality (30%) — clear problem definition, effective presentation, documentation or architecture diagram. Social (10%) — verified social media post about your project.
-Prizes
-1st place: $10,000 + Elastic blog feature. 2nd place: $5,000 + blog feature. 3rd place: $3,000 + blog feature. 4 Creative Awards: $500 each + blog features.
-How Agent Builder Works
-Agent Builder has three core components:
-Agents are LLM-powered entities with custom instructions and assigned tools. They translate natural language into actions. There are built-in agents you can use immediately, or you can create custom ones with tailored instructions for your use case.
-Tools are modular functions that agents call to search, retrieve, and manipulate Elasticsearch data. Built-in tools include Search, ES|QL, and Elastic Workflows. You can also create custom tools or import external ones via MCP (Model Context Protocol).
-Agent Chat is the real-time UI for talking to agents in natural language. You can also interact programmatically via REST APIs.
-Key capabilities for your hackathon project: You can import tools from external MCP servers, expose your agents to external systems (Claude Desktop, Cursor, LangChain) via the MCP server and A2A server, trigger Elastic Workflows for automation, and use the Kibana REST APIs for programmatic control.
-Recommended Approach for the Hackathon
-
-Go to "Agents" in your Kibana sidebar (your project is already set up)
-Explore the built-in agents and tools to understand what's available
-Ingest some data into Elasticsearch (use sample data, synthetic data, or your own)
-Create a custom agent with specific instructions for your use case
-Create custom tools that query your data
-Build out your automation workflow
-Record your 3-minute demo and push code to a public repo
-Would you like me to navigate to the Agents section in your Kibana instance so you can start building?
