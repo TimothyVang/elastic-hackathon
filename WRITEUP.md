@@ -29,8 +29,6 @@ All of this happens through **7 custom tools** orchestrated by a single Agent Bu
 
 **[Watch the 3-minute demo on YouTube →](https://youtu.be/YOUR_VIDEO_ID_HERE)**
 
-![DCO Threat Triage Agent — Demo](demo.gif)
-
 The demo walks through the full system:
 
 | Timestamp | Scene | What You'll See |
@@ -40,20 +38,20 @@ The demo walks through the full system:
 | 0:16–0:24 | **Architecture Diagram** | Full data flow — Agent Builder → 7 tools → 3 Elasticsearch indices |
 | 0:24–0:30 | **Kill Chain Timeline** | 5-stage MITRE ATT&CK attack chain visualization |
 | 0:30–0:42 | **Alerts, Intel, Incidents** | Raw security data — 105 alerts, 18 IOCs, incident records |
-| 0:42–0:55 | **Agent Chat** | 7 tool badges, green "Agent Builder" indicator, typing triage prompt |
-| 0:55–1:50 | **Running Agent Tools** | Live Agent Builder processing — ES|QL queries executing in real time |
-| 1:50–2:30 | **Triage Results** | Full structured report: TRUE POSITIVE, P1 Critical, Risk Score 95/100, MITRE mapping, containment recommendations |
-| 2:30–2:55 | **Execution Trace** | 16-step tool execution trace + 7 tool badges — proof of autonomous Agent Builder orchestration |
+| 0:42–1:05 | **Agent Chat** | 7 tool badges, green "Agent Builder" indicator, typing triage prompt |
+| 1:05–1:42 | **Running Agent Tools** | Agent Builder processing (sped up 3×) — ES|QL queries executing in real time |
+| 1:42–2:17 | **Triage Results** | Full structured report: TRUE POSITIVE, P1 Critical, Risk Score 95/100, MITRE mapping |
+| 2:17–2:50 | **Execution Trace** | Tool execution trace + 7 tool badges — proof of autonomous Agent Builder orchestration |
 
-The agent receives a single natural language prompt — *"Triage the latest critical alerts from 10.10.15.42"* — and autonomously runs 16 reasoning steps across all 7 tools to produce a complete investigation report in under 2 minutes.
+The agent receives a single natural language prompt — *"Triage the latest critical alerts from 10.10.15.42"* — and autonomously runs multiple reasoning steps across all 7 tools to produce a complete investigation report in under 2 minutes. *(The loading section is sped up 3× in the demo to fit within 3 minutes.)*
 
 ---
 
 ## Architecture Overview
 
-![Dashboard with Architecture Diagram](screenshots/after/01-dashboard-hero.png)
+![Dashboard with Architecture Diagram](screenshots/demo/dashboard.png)
 
-The frontend dashboard shows the full architecture at a glance. **Elastic Agent Builder** sits at the center, connecting the **DCO Triage Agent** (powered by Claude Sonnet 4.5) to **3 Elasticsearch indices** through **7 specialized tools**. The dashboard displays live stats — 105 security alerts, 5 critical threats, and a real-time connection indicator to Agent Builder.
+The frontend dashboard shows the full architecture at a glance. **Elastic Agent Builder** sits at the center, connecting the **DCO Triage Agent** (powered by Claude Sonnet 4.5) to **3 Elasticsearch indices** through **7 specialized tools**. The dashboard displays live stats — 315 security alerts, 15 critical threats, and a real-time connection indicator to Agent Builder.
 
 The architecture flows like this:
 
@@ -178,18 +176,18 @@ The native **Agent Chat** inside Kibana shows the DCO Triage Agent selected with
 
 ### Threat Command Dashboard
 
-![Dashboard — Threat Command](screenshots/after/01-dashboard-hero.png)
+![Dashboard — Threat Command](screenshots/demo/dashboard.png)
 
 The main dashboard provides situational awareness at a glance:
-- **105 total alerts** in the `security-alerts` index
-- **5 critical threats** and **8 high-severity** alerts
+- **315 total alerts** in the `security-alerts` index
+- **15 critical threats** and **24 high-severity** alerts
 - **Elastic Agent Builder** connection status (green = connected)
 - **7 tool badges** showing all tools available to the agent
 - **Architecture diagram** showing the full data flow
 
 ### Security Alerts Table
 
-![Alerts Page](screenshots/after/04-alerts-page.png)
+![Alerts Page](screenshots/demo/alerts.png)
 
 The **Alerts** page shows all 105 security events — the raw data that the agent triages. Alerts include the 5-stage MITRE ATT&CK kill chain (Initial Access → Execution → Credential Access → Lateral Movement → Exfiltration) mixed with ~71 benign noise events. This is the needle-in-a-haystack problem the agent solves.
 
@@ -211,10 +209,16 @@ The frontend exposes each of the agent's ES|QL tools as standalone hunt pages, s
 | **Process Chain** | `process_chain_analysis` | Parent-child process trees on a host |
 
 ![Hunt — Correlated Events](screenshots/demo/hunt-correlate.png)
-*Correlated Events hunt page — enter an IP and get a chronological timeline. Uses the same ES|QL query as the agent's `correlated_events_by_ip` tool.*
+*Correlated Events hunt page — 64 events found for IP 10.10.15.42, showing the full kill chain from phishing (T1566) through C2 beaconing (T1071) to credential dumping (T1003) and exfiltration (T1041). Uses the same ES|QL query as the agent's `correlated_events_by_ip` tool.*
+
+![Hunt — Beaconing Detection](screenshots/demo/hunt-beaconing.png)
+*Beaconing Detection hunt page — detects C2 beacon pattern: 44 beacons to 198.51.100.23 (cdn-update.malwaredomain.net) at 296-second intervals, 490 MB total data exfiltrated. Uses the same ES|QL query as the agent's `beaconing_detection` tool.*
+
+![Hunt — Lateral Movement](screenshots/demo/hunt-lateral.png)
+*Lateral Movement hunt page — flags attacker IP 10.10.15.42 using admin_svc credentials across 3 hosts (SRV-DC01, SRV-FILE01, SRV-DB01) with HIGH risk. Uses the same ES|QL query as the agent's `lateral_movement_detection` tool.*
 
 ![Hunt — Process Chain](screenshots/demo/hunt-process.png)
-*Process Chain hunt page — enter a hostname (e.g., WS-PC0142) to inspect process trees. Same query as the agent's `process_chain_analysis` tool.*
+*Process Chain hunt page — 8 processes on WS-PC0142 revealing the classic attack chain: EXCEL.EXE (T1566) → cmd.exe (T1059) → powershell.exe (T1059) → rundll32.exe (T1003, LSASS credential dumping). Uses the same ES|QL query as the agent's `process_chain_analysis` tool.*
 
 ### Incident Log
 
@@ -228,7 +232,7 @@ The **Incidents** page shows formal incident records created by the agent's `inc
 
 ### Chat Interface with 7 Tool Badges
 
-![Frontend Agent Chat — Ready](screenshots/after/09-chat-hero-7tools.png)
+![Frontend Agent Chat — Ready](screenshots/demo/chat.png)
 
 The frontend Agent Chat page shows:
 - **"AGENT BUILDER"** badge — confirming the backend is Elastic Agent Builder (not a fallback)
