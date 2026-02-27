@@ -36,6 +36,10 @@ frontend/playwright-report/
 
 # Demo video output
 demo-video/
+demo_original.gif
+
+# Video pipeline (demo video tooling, not part of the project)
+video-pipeline/
 
 # Development tooling
 .claude/

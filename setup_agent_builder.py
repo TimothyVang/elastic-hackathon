@@ -114,7 +114,7 @@ ESQL_TOOLS = [
         "query": """FROM security-alerts
 | WHERE event.category == "network"
   AND network.direction == "outbound"
-  AND @timestamp >= NOW() - 24 HOURS
+  AND @timestamp >= NOW() - 30 DAYS
 | STATS beacon_count = COUNT(*), total_bytes = SUM(source.bytes), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY destination.ip, destination.domain, source.ip
 | WHERE beacon_count >= 5
 | EVAL duration_minutes = DATE_DIFF("minutes", first_seen, last_seen)
