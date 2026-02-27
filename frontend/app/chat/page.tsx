@@ -11,13 +11,27 @@ import {
   Search,
   Zap,
   ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  Shield,
+  GitBranch,
 } from "lucide-react";
+
+interface Step {
+  type: string;
+  tool_id?: string;
+  reasoning?: string;
+  params?: unknown;
+  results?: unknown;
+}
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
   toolsUsed?: string[];
+  backend?: "agent_builder" | "groq";
+  steps?: Step[];
 }
 
 const SUGGESTED_PROMPTS = [
@@ -33,14 +47,96 @@ const AGENT_TOOLS = [
   { name: "Lateral Movement", type: "ES|QL", icon: Database },
   { name: "Beaconing Detection", type: "ES|QL", icon: Database },
   { name: "Process Chain", type: "ES|QL", icon: Database },
+  { name: "Privilege Escalation", type: "ES|QL", icon: Shield },
   { name: "Threat Intel", type: "Search", icon: Search },
+  { name: "Incident Workflow", type: "Workflow", icon: GitBranch },
 ];
+
+function ExecutionTrace({ steps }: { steps: Step[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!steps || steps.length === 0) return null;
+
+  return (
+    <div className="mt-3 border border-divider bg-base-dark/30">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted/60 hover:text-primary transition-colors"
+      >
+        {expanded ? (
+          <ChevronDown className="w-3 h-3" />
+        ) : (
+          <ChevronRight className="w-3 h-3" />
+        )}
+        Agent Execution Trace ({steps.length} step{steps.length !== 1 ? "s" : ""})
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-1.5">
+          {steps.map((step, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 text-[11px] text-muted/50"
+            >
+              <span className="text-muted/30 font-mono w-4 shrink-0 text-right">
+                {i + 1}.
+              </span>
+              {step.type === "tool_call" ? (
+                <span>
+                  <span className="text-accent-orange font-bold">[tool_call]</span>{" "}
+                  <span className="text-primary/80">{step.tool_id}</span>
+                  {step.results != null && (
+                    <span className="text-muted/40">
+                      {" "}
+                      &rarr;{" "}
+                      {typeof step.results === "string"
+                        ? `${(step.results as string).slice(0, 60)}...`
+                        : "results returned"}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span>
+                  <span className="text-green-500/80 font-bold">[{step.type}]</span>{" "}
+                  {step.reasoning
+                    ? step.reasoning.slice(0, 80) + (step.reasoning.length > 80 ? "..." : "")
+                    : "Agent processing"}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BackendBadge({ backend }: { backend?: "agent_builder" | "groq" }) {
+  if (!backend) return null;
+
+  if (backend === "agent_builder") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.15em] text-green-700 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+        Agent Builder
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.15em] text-accent-orange bg-accent-orange/10 border border-accent-orange/20 px-1.5 py-0.5">
+      <span className="w-1.5 h-1.5 rounded-full bg-accent-orange" />
+      Groq Fallback
+    </span>
+  );
+}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [agentAvailable, setAgentAvailable] = useState<boolean | null>(null);
+  const [activeBackend, setActiveBackend] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | undefined>();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,7 +145,13 @@ export default function ChatPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: "__ping__" }),
     })
-      .then((r) => setAgentAvailable(r.ok))
+      .then(async (r) => {
+        setAgentAvailable(r.ok);
+        if (r.ok) {
+          const data = await r.json();
+          setActiveBackend(data.backend || null);
+        }
+      })
       .catch(() => setAgentAvailable(false));
   }, []);
 
@@ -80,18 +182,28 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({
+          messages: history,
+          conversation_id: conversationId,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
+      // Store conversation_id for multi-turn
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id);
+      }
+
       const assistantMsg: Message = {
         role: "assistant",
         content: data.response || "No response received.",
         timestamp: new Date(),
         toolsUsed: data.toolsUsed || [],
+        backend: data.backend || undefined,
+        steps: data.steps || [],
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
@@ -128,8 +240,15 @@ export default function ChatPage() {
             <span className="text-accent-red ml-[5vw]">Chat</span>
           </h1>
           <p className="mt-3 text-muted/60 text-[14px] max-w-[500px] leading-relaxed">
-            Interact with the DCO Triage Agent — powered by Elastic Agent Builder with 5 tools for autonomous threat analysis.
+            Interact with the DCO Triage Agent — powered by Elastic Agent Builder with 7 tools for autonomous threat analysis.
           </p>
+
+          {/* Active backend indicator */}
+          {activeBackend && (
+            <div className="mt-2">
+              <BackendBadge backend={activeBackend as "agent_builder" | "groq"} />
+            </div>
+          )}
 
           {/* Agent tools mini display */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -186,6 +305,7 @@ export default function ChatPage() {
         {messages.map((msg, i) => (
           <div
             key={i}
+            data-backend={msg.backend || undefined}
             className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
           >
             {msg.role === "assistant" && (
@@ -200,11 +320,20 @@ export default function ChatPage() {
                   : "bg-base-dark/60 border border-divider text-primary"
               }`}
             >
+              {/* Backend badge for assistant messages */}
+              {msg.role === "assistant" && msg.backend && (
+                <div className="mb-2">
+                  <BackendBadge backend={msg.backend} />
+                </div>
+              )}
+
               {msg.role === "assistant" ? (
                 <div className="chat-prose"><ReactMarkdown>{msg.content}</ReactMarkdown></div>
               ) : (
                 msg.content
               )}
+
+              {/* Tool badges */}
               {msg.toolsUsed && msg.toolsUsed.length > 0 && (
                 <div className="mt-3 pt-2 border-t border-divider flex flex-wrap gap-1.5">
                   <Zap className="w-3 h-3 text-accent-orange" />
@@ -217,6 +346,11 @@ export default function ChatPage() {
                     </span>
                   ))}
                 </div>
+              )}
+
+              {/* Execution trace */}
+              {msg.steps && msg.steps.length > 0 && (
+                <ExecutionTrace steps={msg.steps} />
               )}
             </div>
             {msg.role === "user" && (

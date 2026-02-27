@@ -29,3 +29,10 @@ Thumbs.db
 # Screenshots — debug/temp only (demo/ and devpost/ are tracked)
 screenshots/debug/
 .playwright-mcp/
+
+# Playwright test artifacts
+frontend/test-results/
+frontend/playwright-report/
+
+# Demo video output
+demo-video/

@@ -4,14 +4,24 @@ import { ESQL_QUERIES } from "@/lib/queries";
 import { esqlToRows } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // ---------------------------------------------------------------------------
 // Agent Builder converse API proxy
 // ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface AgentBuilderResult {
+  response: string;
+  toolsUsed: string[];
+  backend: "agent_builder";
+  steps: Array<{ type: string; tool_id?: string; reasoning?: string; params?: unknown; results?: unknown }>;
+  conversation_id?: string;
+}
+
 async function converseWithAgentBuilder(
-  messages: { role: string; content: string }[]
-): Promise<{ response: string; toolsUsed: string[] }> {
+  messages: { role: string; content: string }[],
+  conversationId?: string
+): Promise<AgentBuilderResult> {
   const kibanaUrl = process.env.KIBANA_URL || process.env.NEXT_PUBLIC_KIBANA_URL;
   const apiKey = process.env.ELASTIC_API_KEY;
 
@@ -25,44 +35,73 @@ async function converseWithAgentBuilder(
     throw new Error("No user message found");
   }
 
-  const res = await fetch(`${kibanaUrl}/api/agent_builder/converse`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `ApiKey ${apiKey}`,
-      "kbn-xsrf": "true",
-      "x-elastic-internal-origin": "Kibana",
-    },
-    body: JSON.stringify({
+  // AbortController with 120s timeout for long-running Agent Builder queries
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000);
+
+  try {
+    // Build request body — include conversation_id for multi-turn context
+    const requestBody: Record<string, unknown> = {
       input: lastUserMsg.content,
       agent_id: "dco_triage_agent",
-    }),
-  });
+    };
+    if (conversationId) {
+      requestBody.conversation_id = conversationId;
+    }
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Agent Builder API error (${res.status}): ${errBody}`);
-  }
+    const res = await fetch(`${kibanaUrl}/api/agent_builder/converse`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `ApiKey ${apiKey}`,
+        "kbn-xsrf": "true",
+        "x-elastic-internal-origin": "Kibana",
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
 
-  const data = await res.json();
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`Agent Builder API error (${res.status}): ${errBody}`);
+    }
 
-  // Extract tool names from steps
-  const toolsUsed: string[] = [];
-  if (Array.isArray(data.steps)) {
-    for (const step of data.steps) {
-      if (step.type === "tool_call" && step.tool_id && !toolsUsed.includes(step.tool_id)) {
-        toolsUsed.push(step.tool_id);
+    const data = await res.json();
+
+    // Extract tool names and raw steps for execution trace
+    const toolsUsed: string[] = [];
+    const steps: AgentBuilderResult["steps"] = [];
+    if (Array.isArray(data.steps)) {
+      for (const step of data.steps) {
+        steps.push({
+          type: step.type || "unknown",
+          tool_id: step.tool_id,
+          reasoning: step.reasoning,
+          params: step.params,
+          results: step.results,
+        });
+        if (step.type === "tool_call" && step.tool_id && !toolsUsed.includes(step.tool_id)) {
+          toolsUsed.push(step.tool_id);
+        }
       }
     }
+
+    const responseText =
+      data.response?.message ||
+      data.response ||
+      (typeof data.message === "string" ? data.message : null) ||
+      "Agent completed analysis but returned no text response.";
+
+    return {
+      response: responseText,
+      toolsUsed,
+      backend: "agent_builder",
+      steps,
+      conversation_id: data.conversation_id,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const responseText =
-    data.response?.message ||
-    data.response ||
-    (typeof data.message === "string" ? data.message : null) ||
-    "Agent completed analysis but returned no text response.";
-
-  return { response: responseText, toolsUsed };
 }
 
 // ---------------------------------------------------------------------------
@@ -343,7 +382,7 @@ async function groqChat(messages: GroqMessage[]): Promise<{
 
 async function groqFallback(
   messages: { role: string; content: string }[]
-): Promise<{ response: string; toolsUsed: string[] }> {
+): Promise<{ response: string; toolsUsed: string[]; backend: "groq"; steps: never[] }> {
   const groqMessages: GroqMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
 
   for (const m of messages) {
@@ -369,6 +408,8 @@ async function groqFallback(
       return {
         response: result.content || "No response generated.",
         toolsUsed,
+        backend: "groq",
+        steps: [],
       };
     }
 
@@ -395,6 +436,8 @@ async function groqFallback(
   return {
     response: lastAssistant?.content || "Analysis complete — reached processing limit.",
     toolsUsed,
+    backend: "groq",
+    steps: [],
   };
 }
 
@@ -431,10 +474,11 @@ export async function POST(req: NextRequest) {
 
     // Try Agent Builder first, then Groq fallback
     const hasKibana = !!(process.env.KIBANA_URL || process.env.NEXT_PUBLIC_KIBANA_URL);
+    const conversationId = body.conversation_id as string | undefined;
 
     if (hasKibana) {
       try {
-        const result = await converseWithAgentBuilder(messages);
+        const result = await converseWithAgentBuilder(messages, conversationId);
         return NextResponse.json(result);
       } catch (abErr) {
         // If Agent Builder fails and Groq is available, fall through
@@ -443,6 +487,7 @@ export async function POST(req: NextRequest) {
           const msg = abErr instanceof Error ? abErr.message : String(abErr);
           return NextResponse.json({ error: `Agent Builder error: ${msg}` }, { status: 502 });
         }
+        console.warn("Agent Builder failed, falling back to Groq:", abErr instanceof Error ? abErr.message : abErr);
         // Fall through to Groq
       }
     }
