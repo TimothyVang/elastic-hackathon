@@ -27,26 +27,22 @@ All of this happens through **7 custom tools** orchestrated by a single Agent Bu
 
 ## Demo Video
 
-**[Watch the 3-minute demo on YouTube →](https://youtu.be/YOUR_VIDEO_ID_HERE)**
+**[Watch the 2:22 demo on YouTube →](https://youtu.be/YOUR_VIDEO_ID_HERE)**
 
-The demo walks through the full system:
+The demo leads with the hero shot — the full dashboard — then walks through every feature before showing the agent in action:
 
 | Timestamp | Scene | What You'll See |
 |-----------|-------|-----------------|
-| 0:00–0:05 | **Kibana — Agents List** | Agent Builder UI with `dco_triage_agent` and full system prompt |
-| 0:05–0:10 | **Kibana — Agent Config** | DCO Triage Agent's full system prompt — 6-step reasoning chain |
-| 0:10–0:15 | **Kibana — Global Tools** | All 7 custom tools listed: beaconing_detection, correlated_events, etc. |
-| 0:15–0:19 | **Beaconing Detection** | Hunt page — 44 C2 beacons to 198.51.100.23 at 296s intervals |
-| 0:19–0:23 | **Lateral Movement** | Hunt page — attacker IP across 3 hosts, HIGH risk |
-| 0:23–0:30 | **Dashboard** | Threat command center — 105 alerts, 5 critical, Agent Builder CONNECTED |
-| 0:30–0:50 | **Architecture + Kill Chain** | Data flow diagram, 5-stage MITRE ATT&CK attack visualization |
-| 0:50–1:10 | **Alerts, Intel, Incidents** | Raw security data — 105 alerts, 18 IOCs, incident records |
-| 1:10–1:27 | **Agent Chat** | 7 tool badges, green "Agent Builder" indicator, typing triage prompt |
-| 1:27–1:41 | **Running Agent Tools** | Agent Builder processing (sped up 8×) — ES|QL queries executing |
-| 1:41–2:20 | **Triage Results** | Full structured report: TRUE POSITIVE, P1 Critical, Risk Score 95/100 |
-| 2:20–2:50 | **Execution Trace** | Threat Intel Context, 18-step execution trace, 7 tool badges — orchestration proof |
+| 0:00–0:24 | **Dashboard Hero** | THREAT COMMAND, 105 alerts, 5 critical, Agent Builder CONNECTED, 7 tool badges |
+| 0:24–0:54 | **Alerts, Intel, Incidents** | Security data pages — 105 alerts, 18 MITRE-mapped IOCs, incident records |
+| 0:54–1:13 | **Agent Chat** | 7 tool badges, green Agent Builder badge, typing triage prompt, RUNNING AGENT TOOLS |
+| 1:13–1:27 | **Triage Response** | TRUE POSITIVE verdict, Risk Score 95/100, Attack Timeline appears |
+| 1:27–1:47 | **Response (2× speed)** | Scrolling through containment recommendations, threat intel sections |
+| 1:47–2:02 | **Execution Trace** | 18-step autonomous trace, 7 tool badges, full orchestration proof |
+| 2:02–2:17 | **Kibana Agent Builder** | Behind the scenes: agents list, agent config, global tools list |
+| 2:17–2:22 | **Hunt Pages** | Beaconing detection (44 beacons), lateral movement (3 hosts, HIGH risk) |
 
-The agent receives a single natural language prompt — *"Triage the latest critical alerts from 10.10.15.42"* — and autonomously runs multiple reasoning steps across all 7 tools to produce a complete investigation report in under 2 minutes. *(The loading section is sped up 8× in the demo to fit within 3 minutes.)*
+The agent receives a single natural language prompt — *"Triage the latest critical alerts from 10.10.15.42"* — and autonomously runs multiple reasoning steps across all 7 tools to produce a complete investigation report in under 2 minutes. *(The static response section is shown at 2× speed to maintain pacing.)*
 
 ---
 
