@@ -273,7 +273,7 @@ INDICES: dict[str, dict] = {
                 },
                 "affected_hosts": {"type": "keyword"},
                 "affected_users": {"type": "keyword"},
-                "source_ips": {"type": "ip"},
+                "source_ips": {"type": "keyword"},
                 "kill_chain_phase": {"type": "keyword"},
                 "mitre_techniques": {"type": "keyword"},
                 "event_count": {"type": "integer"},
@@ -309,6 +309,18 @@ def create_indices() -> None:
             mappings=body["mappings"],
         )
         console.print(f"  [green]Created index:[/] {index_name}")
+
+    # Create ingest pipeline for incident-log timestamp
+    es.ingest.put_pipeline(
+        id="incident-log-timestamp",
+        description="Adds @timestamp if missing (used by incident_triage_workflow)",
+        processors=[{"set": {"field": "@timestamp", "value": "{{{_ingest.timestamp}}}", "override": False}}],
+    )
+    console.print("  [green]Created pipeline:[/] incident-log-timestamp")
+
+    # Set default pipeline on incident-log index
+    es.indices.put_settings(index="incident-log", settings={"index.default_pipeline": "incident-log-timestamp"})
+    console.print("  [green]Linked pipeline to:[/] incident-log")
 
     console.print(f"\n[bold green]All {len(INDICES)} indices created successfully.[/]")
 

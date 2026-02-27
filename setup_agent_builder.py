@@ -345,6 +345,110 @@ def create_search_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
     return result
 
 
+WORKFLOW_YAML = """name: incident_triage
+description: >
+  Automated incident triage workflow that creates a structured incident record
+  in the incident-log index. Called by the DCO Triage Agent after completing
+  analysis to formally document triage results with severity, MITRE ATT&CK
+  mapping, and containment recommendations.
+enabled: true
+tags:
+  - security
+  - triage
+  - dco
+triggers:
+  - type: manual
+inputs:
+  - name: title
+    type: string
+  - name: description
+    type: string
+  - name: severity
+    type: string
+    default: high
+  - name: priority
+    type: string
+    default: P2
+  - name: source_ip
+    type: string
+  - name: affected_hosts
+    type: string
+  - name: mitre_techniques
+    type: string
+  - name: containment_actions
+    type: string
+  - name: risk_score
+    type: string
+    default: "75.0"
+  - name: triage_result
+    type: string
+    default: true_positive
+steps:
+  - name: create_incident_record
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: /incident-log/_doc?refresh=wait_for&pipeline=incident-log-timestamp
+      body:
+        incident:
+          id: "INC-triage"
+          title: "{{ inputs.title }}"
+          description: "{{ inputs.description }}"
+          severity: "{{ inputs.severity }}"
+          status: open
+          priority: "{{ inputs.priority }}"
+        source_ips: "{{ inputs.source_ip }}"
+        affected_hosts: "{{ inputs.affected_hosts }}"
+        mitre_techniques: "{{ inputs.mitre_techniques }}"
+        containment_actions: "{{ inputs.containment_actions }}"
+        risk_score: "{{ inputs.risk_score }}"
+        triage_result: "{{ inputs.triage_result }}"
+  - name: log_result
+    type: console
+    with:
+      message: "Incident record created for: {{ inputs.title }}"
+"""
+
+
+def ensure_workflow(kibana_url: str, headers: dict, workflow_id: str) -> bool:
+    """Ensure the incident triage workflow exists in Kibana, creating or updating it."""
+    wf_headers = {**headers, "x-elastic-internal-origin": "Kibana"}
+
+    # Check if workflow exists
+    resp = requests.get(f"{kibana_url}/api/workflows/{workflow_id}", headers=wf_headers, timeout=30)
+    if resp.status_code == 200:
+        # Update it to ensure latest YAML
+        resp = requests.put(
+            f"{kibana_url}/api/workflows/{workflow_id}",
+            headers=wf_headers,
+            json={"yaml": WORKFLOW_YAML},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            console.print(f"  [green]OK[/] Updated workflow: {workflow_id}")
+            return True
+        console.print(f"  [yellow]WARN[/] Failed to update workflow: {resp.status_code} — {resp.text[:200]}")
+        return True  # Workflow exists even if update failed
+
+    # Create new workflow
+    resp = requests.post(
+        f"{kibana_url}/api/workflows",
+        headers=wf_headers,
+        json={"yaml": WORKFLOW_YAML},
+        timeout=30,
+    )
+    if resp.status_code in (200, 201):
+        result = resp.json()
+        new_id = result.get("id", workflow_id)
+        console.print(f"  [green]OK[/] Created workflow: {new_id}")
+        if new_id != workflow_id:
+            console.print(f"  [yellow]NOTE[/] Workflow ID changed to: {new_id} — update WORKFLOW_TOOL['workflow_id']")
+        return True
+
+    console.print(f"  [yellow]WARN[/] Could not create workflow: {resp.status_code} — {resp.text[:200]}")
+    return False
+
+
 def create_workflow_tool(kibana_url: str, headers: dict, tool: dict) -> dict:
     """Create or update a workflow tool in Agent Builder."""
     payload = {
@@ -444,7 +548,9 @@ def setup_agent_builder() -> None:
     elif "already exists" in str(result.get("error", "")):
         tool_ids.append(SEARCH_TOOL["id"])
 
-    # Create/update Workflow tool
+    # Ensure the Elastic Workflow exists, then create/update the Workflow tool
+    console.print("\n[bold cyan]Setting up Workflow...[/]")
+    ensure_workflow(kibana_url, headers, WORKFLOW_TOOL["workflow_id"])
     console.print("\n[bold cyan]Setting up Workflow tool...[/]")
     workflow_result = create_workflow_tool(kibana_url, headers, WORKFLOW_TOOL)
     if "error" not in workflow_result:

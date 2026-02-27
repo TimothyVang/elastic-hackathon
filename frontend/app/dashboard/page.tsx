@@ -12,8 +12,10 @@ import StatCard from "@/components/dashboard/StatCard";
 import EventTimeline from "@/components/dashboard/EventTimeline";
 import SeverityDonut from "@/components/dashboard/SeverityDonut";
 import KillChainTimeline from "@/components/dashboard/KillChainTimeline";
+import KillChainDrawer from "@/components/dashboard/KillChainDrawer";
 import AgentBuilderPanel from "@/components/dashboard/AgentBuilderPanel";
 import ArchitectureDiagram from "@/components/dashboard/ArchitectureDiagram";
+import AlertDrawer from "@/components/ui/AlertDrawer";
 import SeverityBadge from "@/components/ui/SeverityBadge";
 import MitreBadge from "@/components/ui/MitreBadge";
 import type { DashboardStats, SecurityAlert } from "@/lib/types";
@@ -34,6 +36,9 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedTactic, setSelectedTactic] = useState<string | null>(null);
+  const [selectedTacticColor, setSelectedTacticColor] = useState("#444");
+  const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -203,7 +208,13 @@ export default function DashboardPage() {
       {/* Kill Chain */}
       {killChain.length > 0 && (
         <div className="animate-slide-up-d4">
-          <KillChainTimeline stages={killChain} />
+          <KillChainTimeline
+            stages={killChain}
+            onStageClick={(tactic, color) => {
+              setSelectedTactic(tactic);
+              setSelectedTacticColor(color);
+            }}
+          />
         </div>
       )}
 
@@ -252,6 +263,22 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Kill Chain Drawer */}
+      {selectedTactic && (
+        <KillChainDrawer
+          tactic={selectedTactic}
+          tacticColor={selectedTacticColor}
+          onClose={() => setSelectedTactic(null)}
+          onEventClick={(alert) => setSelectedAlert(alert)}
+        />
+      )}
+
+      {/* Alert Detail Drawer (stacks on top of KillChainDrawer) */}
+      <AlertDrawer
+        alert={selectedAlert}
+        onClose={() => setSelectedAlert(null)}
+      />
     </div>
   );
 }

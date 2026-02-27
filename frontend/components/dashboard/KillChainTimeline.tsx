@@ -21,6 +21,7 @@ interface KillChainStage {
 
 interface KillChainTimelineProps {
   stages: KillChainStage[];
+  onStageClick?: (tactic: string, color: string) => void;
 }
 
 const TACTIC_ORDER = [
@@ -47,7 +48,7 @@ const TACTIC_CONFIG: Record<string, TacticConfig> = {
 
 const DEFAULT_CONFIG: TacticConfig = { color: "#444444", icon: Shield };
 
-export default function KillChainTimeline({ stages }: KillChainTimelineProps) {
+export default function KillChainTimeline({ stages, onStageClick }: KillChainTimelineProps) {
   if (!stages.length) return null;
 
   const sorted = [...stages].sort((a, b) => {
@@ -76,7 +77,11 @@ export default function KillChainTimeline({ stages }: KillChainTimelineProps) {
             <div key={stage.tactic} className="flex items-stretch shrink-0">
               {/* Stage card */}
               <div
-                className="relative min-w-[175px] bg-base-dark/60 border border-divider transition-all duration-300 hover:shadow-brutal-sm hover:translate-x-[-2px] hover:translate-y-[-2px] group/card"
+                className={`relative min-w-[175px] bg-base-dark/60 border border-divider transition-all duration-300 hover:shadow-brutal-sm hover:translate-x-[-2px] hover:translate-y-[-2px] group/card ${onStageClick ? "cursor-pointer" : ""}`}
+                role={onStageClick ? "button" : undefined}
+                tabIndex={onStageClick ? 0 : undefined}
+                onClick={() => onStageClick?.(stage.tactic, config.color)}
+                onKeyDown={(e) => { if (onStageClick && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onStageClick(stage.tactic, config.color); } }}
               >
                 {/* Top accent */}
                 <div
