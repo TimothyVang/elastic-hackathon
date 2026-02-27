@@ -7,6 +7,16 @@
 
 **[Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** | **[Devpost Submission](https://devpost.com/software/soc-agent-7z80jq)**
 
+<!-- TODO: Add social post link once published — earns 10% Social Engagement score -->
+<!-- **[Social Post](YOUR_LINK_HERE)** *(shared with @elastic)* -->
+
+### Key Results
+
+- **Risk Score 95/100** — correctly identifies a Critical / True Positive APT intrusion
+- **18 autonomous reasoning steps** across 7 tools in under 2 minutes
+- **5-stage MITRE ATT&CK kill chain** fully mapped (T1566 → T1059 → T1003 → T1021 → T1041)
+- **3 Elastic tool types** used: ES|QL, Index Search, and Workflow
+
 ---
 
 ## Demo
@@ -15,10 +25,6 @@
   <a href="https://www.youtube.com/watch?v=yT__GtmewE8">
     <img src="https://img.youtube.com/vi/yT__GtmewE8/maxresdefault.jpg" alt="Watch Demo on YouTube" width="800" />
   </a>
-</p>
-
-<p align="center">
-  <img src="demo.gif" alt="DCO Threat Triage Agent — Quick Preview" width="800" />
 </p>
 
 ---
@@ -45,97 +51,18 @@ To prove it works, we built a realistic simulated environment: a **5-stage attac
 
 ---
 
-## Agent Builder in Kibana
-
-The agent and all 7 tools are deployed in Elastic Agent Builder and accessible via the Kibana UI:
-
-<p align="center">
-  <img src="screenshots/demo/agent-builder-dco-tools.png" alt="Agent Builder — 7 Tools Wired to DCO Agent" width="800" />
-</p>
-
-<p align="center">
-  <img src="screenshots/demo/agent-builder-chat-ready.png" alt="Agent Builder — Chat Interface Ready" width="800" />
-</p>
-
----
-
-## Dashboard
-
-The real-time security operations dashboard shows alert statistics, severity distribution, event timeline, and MITRE ATT&CK kill chain visualization — all querying live Elasticsearch data.
-
-<p align="center">
-  <img src="screenshots/demo/dashboard.png" alt="Dashboard — Stats, Kill Chain, Timeline" width="800" />
-</p>
-
----
-
-## Threat Hunting
-
-Four specialized hunt views powered by ES|QL queries:
-
-### Event Correlation
-Links related alerts by source IP across the full event timeline.
-
-<p align="center">
-  <img src="screenshots/demo/hunt-correlate.png" alt="Hunt — IP Event Correlation" width="800" />
-</p>
-
-### Beaconing Detection
-Identifies periodic C2 callback patterns using time-bucketed aggregation.
-
-<p align="center">
-  <img src="screenshots/demo/hunt-beaconing.png" alt="Hunt — C2 Beaconing Detection" width="800" />
-</p>
-
-### Lateral Movement
-Traces credential use and SMB connections across multiple hosts.
-
-<p align="center">
-  <img src="screenshots/demo/hunt-lateral.png" alt="Hunt — Lateral Movement Detection" width="800" />
-</p>
-
-### Process Chain Analysis
-Reconstructs parent-child process trees to reveal execution chains.
-
-<p align="center">
-  <img src="screenshots/demo/hunt-process.png" alt="Hunt — Process Chain Analysis" width="800" />
-</p>
-
----
-
-## Alerts & Threat Intel
-
-<p align="center">
-  <img src="screenshots/demo/alerts.png" alt="Alerts — Filterable Alert Table" width="800" />
-</p>
-
-<p align="center">
-  <img src="screenshots/demo/intel.png" alt="Threat Intel — MITRE ATT&CK Mapped IOCs" width="800" />
-</p>
-
----
-
-## Agent Chat
-
-Send natural language prompts to the DCO Triage Agent. It autonomously selects which tools to call, correlates the results, and returns a structured triage report.
-
-<p align="center">
-  <img src="screenshots/demo/chat.png" alt="Agent Chat — Live Triage Conversation" width="800" />
-</p>
-
----
-
-## Incidents
-
-Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity scores, and containment recommendations.
-
-<p align="center">
-  <img src="screenshots/demo/incidents.png" alt="Incidents — Agent-Generated Triage Reports" width="800" />
-</p>
-
----
-
 ## Architecture
+
+```
+Frontend (Next.js) → Agent Builder Converse API → DCO Triage Agent
+                                                        ↓
+                                              7 Custom Tools
+                                     ┌──────────┼──────────┐
+                              5 ES|QL tools   1 Search    1 Workflow
+                                     ↓           ↓          ↓
+                              security-alerts  threat-intel  incident-log
+                              (105 events)     (18 IOCs)    (incidents)
+```
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -171,7 +98,7 @@ Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity sc
    └─────────────────┘ └─────────────┘ └──────────────────┘
 ```
 
-## Tech Stack
+### Tech Stack
 
 | Component | Technology |
 |---|---|
@@ -186,7 +113,155 @@ Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity sc
 
 ---
 
-## Setup
+## Agent Builder in Kibana
+
+The agent and all 7 tools are deployed in Elastic Agent Builder and accessible via the Kibana UI:
+
+<p align="center">
+  <img src="screenshots/demo/agent-builder-dco-tools.png" alt="Agent Builder — 7 Tools Wired to DCO Agent" width="800" />
+</p>
+
+<p align="center">
+  <img src="screenshots/demo/agent-builder-chat-ready.png" alt="Agent Builder — Chat Interface Ready" width="800" />
+</p>
+
+### Example: Beaconing Detection (ES|QL)
+
+Each ES|QL tool exposes parameterized queries as agent capabilities. Here's the beaconing detection tool that finds C2 callback patterns:
+
+```sql
+FROM security-alerts
+| WHERE event.category == "network"
+| WHERE destination.ip IS NOT NULL
+| STATS beacon_count = COUNT(*),
+        first_seen = MIN(@timestamp),
+        last_seen = MAX(@timestamp),
+        total_bytes = SUM(network.bytes)
+    BY source.ip, destination.ip, destination.domain
+| WHERE beacon_count >= 10
+| EVAL duration_minutes = DATE_DIFF("minutes", first_seen, last_seen)
+| WHERE duration_minutes > 0
+| EVAL avg_interval_seconds = duration_minutes * 60.0 / (beacon_count - 1)
+| WHERE avg_interval_seconds < 600
+| SORT beacon_count DESC
+| LIMIT 50
+```
+
+This detected the C2 server at `198.51.100.23` receiving beacons every ~345 seconds — a pattern invisible in raw alert data but unmistakable in aggregation.
+
+---
+
+## Dashboard
+
+The real-time security operations dashboard shows alert statistics, severity distribution, event timeline, and MITRE ATT&CK kill chain visualization — all querying live Elasticsearch data.
+
+<p align="center">
+  <img src="screenshots/gallery/01-dashboard.png" alt="Dashboard — Stats, Kill Chain, Timeline" width="800" />
+</p>
+
+---
+
+## Threat Hunting
+
+Four specialized hunt views powered by ES|QL queries, each mirroring an agent tool:
+
+| Hunt Page | Agent Tool | Finding |
+|-----------|-----------|---------|
+| **Event Correlation** | `correlated_events_by_ip` | 96 events from `10.10.15.42` — full kill chain from T1566 → T1041 |
+| **Beaconing Detection** | `beaconing_detection` | 66 beacons to `198.51.100.23` at ~2155s intervals, 735 MB transferred |
+| **Lateral Movement** | `lateral_movement_detection` | `admin_svc` across 3 hosts (DC01, FILE01, DB01) — HIGH risk |
+| **Process Chain** | `process_chain_analysis` | EXCEL.EXE → cmd.exe → powershell.exe → rundll32.exe (LSASS dump) |
+
+<p align="center">
+  <img src="screenshots/gallery/10-hunt-correlate.png" alt="Hunt — IP Event Correlation" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/demo/hunt-beaconing-zoomed.png" alt="Hunt — C2 Beaconing Detection (zoomed)" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/demo/hunt-lateral-zoomed.png" alt="Hunt — Lateral Movement Detection (zoomed)" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/gallery/12-hunt-process.png" alt="Hunt — Process Chain Analysis" width="800" />
+</p>
+
+---
+
+## Alerts & Threat Intel
+
+The **Alerts** page shows all 105 security events — a 5-stage MITRE ATT&CK kill chain buried in 80+ benign noise events. This is the needle-in-a-haystack problem the agent solves.
+
+The **Intel** page displays 18 MITRE ATT&CK-mapped IOCs (IPs, domains, hashes, tools) that the agent's `threat_intel_lookup` tool cross-references during every investigation.
+
+<p align="center">
+  <img src="screenshots/gallery/03-alerts-critical.png" alt="Alerts — Filterable Alert Table" width="400" />
+  <img src="screenshots/gallery/04-threat-intel.png" alt="Threat Intel — MITRE ATT&CK Mapped IOCs" width="400" />
+</p>
+
+---
+
+## Agent Chat & Execution Trace
+
+Send natural language prompts to the DCO Triage Agent. It autonomously selects which tools to call, correlates the results, and returns a structured triage report with MITRE ATT&CK mapping, severity scoring, and containment recommendations.
+
+<p align="center">
+  <img src="screenshots/gallery/02-agent-chat.png" alt="Agent Chat — Live Triage Report with Attack Timeline" width="800" />
+</p>
+
+### Tool Usage & Execution Trace — 18 Autonomous Steps
+
+The agent used **all 7 Elastic Agent Builder tools** in a single investigation: `correlated_events_by_ip`, `process_chain_analysis`, `threat_intel_lookup`, `lateral_movement_detection`, `beaconing_detection`, `privilege_escalation_detection`, and `incident_triage_workflow`. The **Execution Trace** panel reveals every reasoning step — proving this is true autonomous analysis, not a canned response.
+
+<p align="center">
+  <img src="screenshots/gallery/02b-agent-tools.png" alt="Agent Response — Tool Badges and Containment Actions" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/gallery/02c-agent-trace.png" alt="Execution Trace — 18 Autonomous Reasoning Steps" width="800" />
+</p>
+
+---
+
+## Incidents
+
+Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity scores, and containment recommendations — created automatically by the `incident_triage_workflow` tool.
+
+<p align="center">
+  <img src="screenshots/demo/incidents.png" alt="Incidents — Agent-Generated Triage Reports" width="800" />
+</p>
+
+---
+
+## How This Meets Hackathon Requirements
+
+| Requirement | How We Meet It |
+|-------------|---------------|
+| **Custom Agent** | `dco_triage_agent` — created via REST API with 6-step triage methodology |
+| **Custom Tools** | 7 tools across 3 types: 5 ES\|QL, 1 index_search, 1 workflow |
+| **Data in Elasticsearch** | 3 indices: `security-alerts` (105 docs), `threat-intel` (18 IOCs), `incident-log` |
+| **Multi-step automation** | Agent autonomously chains 5-6 tool calls per investigation |
+| **Real business task** | Security alert triage — a real problem in every SOC worldwide |
+| **Programmatic setup** | `setup_agent_builder.py` creates everything via Kibana REST API |
+| **Frontend integration** | Next.js dashboard calls Agent Builder converse API with execution trace |
+| **Open source** | [github.com/TimothyVang/elastic-hackathon](https://github.com/TimothyVang/elastic-hackathon) (MIT License) |
+
+---
+
+## What We Liked About Agent Builder
+
+- **Tool type variety** — ES|QL, Search, and Workflow tools let us build a complete security pipeline without leaving Agent Builder. The ES|QL tools are especially powerful for security use cases where you need precise, parameterized queries that an agent can invoke autonomously.
+- **Converse API** — The `POST /api/agent_builder/converse` endpoint made frontend integration straightforward. We get structured responses with tool call traces, which we surface as the "Execution Trace" panel — giving analysts full transparency into the agent's reasoning.
+- **Programmatic control** — Being able to create agents, tools, and wire them together via REST API meant we could version-control our entire agent configuration and deploy idempotently with a single Python script. No manual setup required.
+
+## Challenges
+
+- **No `system_prompt` field** — Agent Builder agents don't have a dedicated system prompt field. We embedded the full 6-step methodology in the agent's `description`, which works but makes the description very long. A dedicated system prompt field would be a great addition.
+- **Workflow tool wiring** — Creating workflows programmatically requires a separate API (`POST /api/workflows`) and the workflow tool needs the UUID, not the name. The Workflow type was the most complex to set up but also the most rewarding — it completes the triage loop by auto-creating incident records.
+- **Serverless ES|QL time windows** — ES|QL queries with `NOW() - 24 HOURS` windows require fresh data. We solved this with `load_attack_data.py` generating timestamps relative to `now - 12h`, so the attack chain is always within the query window — a pattern useful for any Agent Builder demo with time-series data.
+
+---
+
+<details>
+<summary><strong>Setup & Installation</strong></summary>
 
 ### Prerequisites
 
@@ -254,19 +329,9 @@ The dashboard requires the same Elasticsearch credentials as the backend. Set th
 - `ELASTIC_API_KEY`
 - `KIBANA_URL` (optional, for Agent Chat)
 
+</details>
+
 ---
-
-## Features We Liked
-
-- **ES|QL for threat hunting is a game-changer** -- ES|QL's pipe-based syntax is incredibly natural for security analysts. Writing correlated event queries felt like writing SPL or KQL but with better performance. The ability to parameterize queries and expose them as Agent Builder tools means any ES|QL query can become an autonomous capability.
-- **Agent Builder's tool orchestration** -- Wiring up ES|QL, Search, and Workflow tools into a single agent was straightforward and powerful. The agent autonomously decides which tool to call next based on what it learned from the previous one -- that reasoning chain is what elevates this from a dashboard into a true triage agent.
-- **Hybrid search for threat intel** -- Combining keyword and semantic search for IOC lookup means the agent can find related threats even when exact indicators don't match. A query for "credential dumping" surfaces LSASS-related IOCs alongside hash-based matches, giving the agent broader threat context.
-
-## Challenges
-
-- **Realistic attack simulation** -- Designing a 5-stage MITRE ATT&CK attack chain buried in 80+ benign noise events that demonstrates the agent's pattern-finding capabilities without being trivially solvable required careful calibration of event timestamps, severities, and process trees.
-- **Agent Builder API integration** -- Programmatically creating ES|QL tools, search tools, and workflow tools via the Kibana REST API required careful payload construction (named vs. positional params, upsert logic with POST/PUT fallback) and thorough testing against the Agent Builder endpoints.
-- **ES|QL query design at scale** -- Tuning beaconing detection thresholds (e.g., `avg_interval_seconds < 600`) and time-bucketed aggregations to be both performant and accurate across time-series data required multiple iterations of testing against realistic event volumes.
 
 ## License
 
