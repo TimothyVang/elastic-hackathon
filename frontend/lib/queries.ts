@@ -3,7 +3,7 @@
 
 export const ESQL_QUERIES = {
   correlated_events_by_ip: `FROM security-alerts
-| WHERE source.ip == ?source_ip
+| WHERE source.ip == ?
 | WHERE @timestamp >= NOW() - 24 HOURS
 | SORT @timestamp ASC
 | KEEP @timestamp, message, source.ip, destination.ip, event.category, event.action, event.severity, threat.technique.id, threat.technique.name, host.name, user.name, process.name, alert.severity
@@ -32,7 +32,7 @@ export const ESQL_QUERIES = {
 
   process_chain_analysis: `FROM security-alerts
 | WHERE event.category == "process"
-  AND host.name == ?hostname
+  AND host.name == ?
   AND @timestamp >= NOW() - 24 HOURS
 | SORT @timestamp ASC
 | KEEP @timestamp, process.name, process.pid, process.command_line, process.parent.name, process.parent.pid, user.name, event.action, threat.technique.id, alert.severity
