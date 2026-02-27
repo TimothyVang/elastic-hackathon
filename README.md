@@ -98,6 +98,10 @@ Frontend (Next.js) → Agent Builder Converse API → DCO Triage Agent
    └─────────────────┘ └─────────────┘ └──────────────────┘
 ```
 
+<p align="center">
+  <img src="screenshots/gallery/06-architecture.png" alt="Architecture Diagram — Data Flow from Frontend through Agent Builder to Elasticsearch" width="800" />
+</p>
+
 ### Tech Stack
 
 | Component | Technology |
@@ -158,12 +162,19 @@ The real-time security operations dashboard shows alert statistics, severity dis
 <p align="center">
   <img src="screenshots/gallery/01-dashboard.png" alt="Dashboard — Stats, Kill Chain, Timeline" width="800" />
 </p>
+<p align="center">
+  <img src="screenshots/gallery/05-kill-chain.png" alt="MITRE ATT&CK Kill Chain — 5-Stage Attack Visualization" width="800" />
+</p>
 
 ---
 
 ## Threat Hunting
 
 Four specialized hunt views powered by ES|QL queries, each mirroring an agent tool:
+
+<p align="center">
+  <img src="screenshots/gallery/08-hunt-landing.png" alt="Hunt Hub — Four ES|QL-Powered Threat Hunting Views" width="800" />
+</p>
 
 | Hunt Page | Agent Tool | Finding |
 |-----------|-----------|---------|
@@ -194,7 +205,10 @@ The **Alerts** page shows all 105 security events — a 5-stage MITRE ATT&CK kil
 The **Intel** page displays 18 MITRE ATT&CK-mapped IOCs (IPs, domains, hashes, tools) that the agent's `threat_intel_lookup` tool cross-references during every investigation.
 
 <p align="center">
-  <img src="screenshots/gallery/03-alerts-critical.png" alt="Alerts — Filterable Alert Table" width="400" />
+  <img src="screenshots/gallery/07-alerts-all.png" alt="Alerts — All 105 Security Events" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/gallery/03-alerts-critical.png" alt="Alerts — Critical Severity Filter" width="400" />
   <img src="screenshots/gallery/04-threat-intel.png" alt="Threat Intel — MITRE ATT&CK Mapped IOCs" width="400" />
 </p>
 
