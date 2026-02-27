@@ -5,7 +5,7 @@
 | 01 | `01-dashboard.png` | Real-time security ops dashboard with alert stats, severity chart, event timeline, and MITRE ATT&CK kill chain visualization |
 | 02 | `02-agent-chat.png` | DCO Triage Agent returns a structured report: verdict, attack timeline, C2 infrastructure, and affected assets |
 | 02b | `02b-agent-tools.png` | Agent response showing containment actions, all 7 Elastic Agent Builder tool badges, and execution trace toggle |
-| 02c | `02c-agent-trace.png` | 18-step execution trace revealing the agent's autonomous reasoning chain across tool calls and analysis steps |
+| 02c | `02c-agent-trace.png` | 16-step execution trace revealing the agent's autonomous reasoning chain across tool calls and analysis steps |
 | 03 | `03-alerts-critical.png` | Critical and high-severity alerts filtered from 105 security events — the needle-in-a-haystack the agent finds |
 | 04 | `04-threat-intel.png` | 18 MITRE ATT&CK-mapped IOCs (IPs, domains, hashes, tools) used by the agent's threat_intel_lookup tool |
 | 05 | `05-kill-chain.png` | MITRE ATT&CK kill chain visualization mapping the 5-stage attack: T1566 → T1059 → T1003 → T1021 → T1041 |
