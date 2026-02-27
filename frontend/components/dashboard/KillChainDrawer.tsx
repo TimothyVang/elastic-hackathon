@@ -361,6 +361,7 @@ export default function KillChainDrawer({ tactic, tacticColor, onClose, onEventC
 
       {/* Drawer panel */}
       <div
+        data-testid="killchain-drawer"
         className="fixed top-0 right-0 h-full w-[560px] max-w-full bg-base border-l-2 z-35 overflow-y-auto shadow-brutal animate-slide-up"
         style={{ borderLeftColor: tacticColor, zIndex: 35 }}
       >
