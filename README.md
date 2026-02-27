@@ -22,10 +22,10 @@
 ## Demo
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=yT__GtmewE8">
-    <img src="https://img.youtube.com/vi/yT__GtmewE8/maxresdefault.jpg" alt="Watch Demo on YouTube" width="800" />
-  </a>
+  <img src="demo.gif" alt="DCO Threat Triage Agent — Full Demo" width="800" />
 </p>
+
+**[Watch on YouTube](https://www.youtube.com/watch?v=yT__GtmewE8)**
 
 ---
 
