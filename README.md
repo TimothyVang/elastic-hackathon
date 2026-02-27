@@ -118,11 +118,11 @@ Frontend (Next.js) → Agent Builder Converse API → DCO Triage Agent
 The agent and all 7 tools are deployed in Elastic Agent Builder and accessible via the Kibana UI:
 
 <p align="center">
-  <img src="screenshots/demo/agent-builder-dco-tools.png" alt="Agent Builder — 7 Tools Wired to DCO Agent" width="800" />
+  <img src="screenshots/gallery/13-kibana-tools.png" alt="Agent Builder — 7 Tools Wired to DCO Agent" width="800" />
 </p>
 
 <p align="center">
-  <img src="screenshots/demo/agent-builder-chat-ready.png" alt="Agent Builder — Chat Interface Ready" width="800" />
+  <img src="screenshots/gallery/14-kibana-chat.png" alt="Agent Builder — Chat Interface Ready" width="800" />
 </p>
 
 ### Example: Beaconing Detection (ES|QL)
@@ -176,10 +176,10 @@ Four specialized hunt views powered by ES|QL queries, each mirroring an agent to
   <img src="screenshots/gallery/10-hunt-correlate.png" alt="Hunt — IP Event Correlation" width="800" />
 </p>
 <p align="center">
-  <img src="screenshots/demo/hunt-beaconing-zoomed.png" alt="Hunt — C2 Beaconing Detection (zoomed)" width="800" />
+  <img src="screenshots/gallery/09-hunt-beaconing.png" alt="Hunt — C2 Beaconing Detection" width="800" />
 </p>
 <p align="center">
-  <img src="screenshots/demo/hunt-lateral-zoomed.png" alt="Hunt — Lateral Movement Detection (zoomed)" width="800" />
+  <img src="screenshots/gallery/11-hunt-lateral.png" alt="Hunt — Lateral Movement Detection" width="800" />
 </p>
 <p align="center">
   <img src="screenshots/gallery/12-hunt-process.png" alt="Hunt — Process Chain Analysis" width="800" />
@@ -226,7 +226,7 @@ The agent used **all 7 Elastic Agent Builder tools** in a single investigation: 
 Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity scores, and containment recommendations — created automatically by the `incident_triage_workflow` tool.
 
 <p align="center">
-  <img src="screenshots/demo/incidents.png" alt="Incidents — Agent-Generated Triage Reports" width="800" />
+  <img src="screenshots/gallery/15-incidents.png" alt="Incidents — Agent-Generated Triage Reports" width="800" />
 </p>
 
 ---
