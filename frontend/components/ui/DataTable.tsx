@@ -13,12 +13,14 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
   emptyMessage?: string;
+  onRowClick?: (row: T) => void;
 }
 
 export default function DataTable<T extends Record<string, unknown>>({
   columns,
   data,
   emptyMessage = "No data found",
+  onRowClick,
 }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
@@ -48,7 +50,11 @@ export default function DataTable<T extends Record<string, unknown>>({
           {data.map((row, i) => (
             <tr
               key={i}
-              className="hover:bg-surface-overlay/50 transition-colors"
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              className={clsx(
+                "hover:bg-surface-overlay/50 transition-colors",
+                onRowClick && "cursor-pointer"
+              )}
             >
               {columns.map((col) => (
                 <td

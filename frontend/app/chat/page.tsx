@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   Send,
   Bot,
@@ -93,10 +94,11 @@ export default function ChatPage() {
         toolsUsed: data.toolsUsed || [],
       };
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch {
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Unknown error";
       const errorMsg: Message = {
         role: "assistant",
-        content: "Connection to agent failed. Please check the Elastic Agent Builder configuration.",
+        content: `Agent error: ${detail}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -148,7 +150,7 @@ export default function ChatPage() {
           {agentAvailable === false && (
             <div className="mt-3 flex items-center gap-2 text-[11px] text-accent-orange bg-accent-orange/8 border border-accent-orange/20 px-3 py-2">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              Agent Builder API unavailable — using local triage with same ES|QL tools
+              Using local Groq fallback — Agent Builder API unavailable
             </div>
           )}
         </div>
@@ -199,7 +201,7 @@ export default function ChatPage() {
               }`}
             >
               {msg.role === "assistant" ? (
-                <div className="chat-prose whitespace-pre-wrap">{msg.content}</div>
+                <div className="chat-prose"><ReactMarkdown>{msg.content}</ReactMarkdown></div>
               ) : (
                 msg.content
               )}

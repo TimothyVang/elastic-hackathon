@@ -71,7 +71,7 @@ export default function AlertDrawer({ alert, onClose }: AlertDrawerProps) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <SeverityBadge severity={alert.alert?.severity} />
+            <SeverityBadge severity={alert.alert?.severity} eventSeverity={alert.event?.severity} />
             <MitreBadge techniqueId={alert.threat?.technique?.id} techniqueName={alert.threat?.technique?.name} />
             {alert.tags?.map((tag) => (
               <span key={tag} className="inline-flex text-[10px] px-2 py-0.5 bg-primary/5 text-muted/50 border border-divider font-bold uppercase tracking-[0.1em]">

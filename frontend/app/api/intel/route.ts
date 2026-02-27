@@ -29,12 +29,23 @@ export async function GET(request: NextRequest) {
       query = { match_all: {} };
     }
 
-    const resp = await es.search({
-      index: "threat-intel",
-      size: 100,
-      sort: [{ confidence: { order: "desc" } }],
-      query,
-    });
+    let resp;
+    try {
+      resp = await es.search({
+        index: "threat-intel",
+        size: 100,
+        sort: [{ confidence: { order: "desc", unmapped_type: "integer" } }],
+        query,
+      });
+    } catch {
+      // Fallback if sort field fails
+      resp = await es.search({
+        index: "threat-intel",
+        size: 100,
+        sort: [{ "@timestamp": { order: "desc" } }],
+        query,
+      });
+    }
 
     return NextResponse.json({
       total: typeof resp.hits.total === "number" ? resp.hits.total : resp.hits.total?.value || 0,

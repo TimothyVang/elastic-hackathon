@@ -92,7 +92,7 @@ export default function AlertsPage() {
                 <tr key={i} onClick={() => setSelectedAlert(a)}
                   className="hover:bg-base-dark/30 transition-colors cursor-pointer">
                   <td className="px-4 py-3 text-xs text-muted/60 whitespace-nowrap">{safeFormat(a["@timestamp"])}</td>
-                  <td className="px-4 py-3"><SeverityBadge severity={a.alert?.severity} /></td>
+                  <td className="px-4 py-3"><SeverityBadge severity={a.alert?.severity} eventSeverity={a.event?.severity} /></td>
                   <td className="px-4 py-3 text-primary/80 max-w-sm truncate">{a.message || "—"}</td>
                   <td className="px-4 py-3 text-xs text-muted/60">{a.event?.category || "—"}</td>
                   <td className="px-4 py-3 text-xs text-muted/60 font-medium">{a.source?.ip || "—"}</td>

@@ -7,12 +7,25 @@ const SEVERITY_STYLES: Record<string, string> = {
   low: "bg-primary/5 text-muted border-primary/15",
 };
 
+function mapNumericSeverity(n: number): string {
+  if (n >= 80) return "critical";
+  if (n >= 60) return "high";
+  if (n >= 40) return "medium";
+  return "low";
+}
+
 export default function SeverityBadge({
   severity,
+  eventSeverity,
 }: {
   severity: string | undefined;
+  eventSeverity?: number;
 }) {
-  const level = (severity || "unknown").toLowerCase();
+  const level = severity
+    ? severity.toLowerCase()
+    : eventSeverity != null
+      ? mapNumericSeverity(eventSeverity)
+      : "low";
   return (
     <span
       className={clsx(

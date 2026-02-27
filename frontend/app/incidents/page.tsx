@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { format } from "date-fns";
 import SeverityBadge from "@/components/ui/SeverityBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
+import IncidentDrawer from "@/components/ui/IncidentDrawer";
 import type { IncidentLog } from "@/lib/types";
 
 const STATUS_OPTIONS = ["", "open", "investigating", "contained", "resolved"];
@@ -17,6 +18,7 @@ export default function IncidentsPage() {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedIncident, setSelectedIncident] = useState<IncidentLog | null>(null);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -91,7 +93,7 @@ export default function IncidentsPage() {
             </thead>
             <tbody className="divide-y divide-divider">
               {incidents.map((inc, i) => (
-                <tr key={i} className="hover:bg-base-dark/30 transition-colors">
+                <tr key={i} onClick={() => setSelectedIncident(inc)} className="hover:bg-base-dark/30 transition-colors cursor-pointer">
                   <td className="px-4 py-3 text-xs text-muted/60 whitespace-nowrap">{safeFormat(inc["@timestamp"])}</td>
                   <td className="px-4 py-3 text-primary/80 max-w-xs truncate">{inc.incident?.title || "—"}</td>
                   <td className="px-4 py-3"><SeverityBadge severity={inc.incident?.severity} /></td>
@@ -106,6 +108,8 @@ export default function IncidentsPage() {
           </table>
         </div>
       )}
+
+      <IncidentDrawer incident={selectedIncident} onClose={() => setSelectedIncident(null)} />
     </div>
   );
 }

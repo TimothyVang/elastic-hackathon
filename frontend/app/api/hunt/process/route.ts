@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const resp = await es.esql.query({
       query: ESQL_QUERIES.process_chain_analysis,
-      params: [{ hostname }],
+      params: [hostname],
       format: "json",
     });
 

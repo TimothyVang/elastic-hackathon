@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const resp = await es.esql.query({
       query: ESQL_QUERIES.correlated_events_by_ip,
-      params: [{ source_ip: sourceIp }],
+      params: [sourceIp],
       format: "json",
     });
 

@@ -37,14 +37,17 @@ const columns: Column<BeaconingResult>[] = [
 
 export default function BeaconingTable({
   data,
+  onRowClick,
 }: {
   data: BeaconingResult[];
+  onRowClick?: (row: BeaconingResult) => void;
 }) {
   return (
     <DataTable
       columns={columns as unknown as Column<Record<string, unknown>>[]}
       data={data as unknown as Record<string, unknown>[]}
       emptyMessage="No beaconing patterns detected"
+      onRowClick={onRowClick as unknown as ((row: Record<string, unknown>) => void) | undefined}
     />
   );
 }
