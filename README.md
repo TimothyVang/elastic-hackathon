@@ -5,6 +5,16 @@
 
 **DCO Threat Triage Agent** is an autonomous AI agent built entirely with **Elastic Agent Builder** that performs first-pass security alert triage — correlating events with ES|QL, hunting for attack patterns, and cross-referencing MITRE ATT&CK-mapped threat intelligence — so SOC analysts can focus on confirmed threats instead of drowning in noise.
 
+**[Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** | **[Devpost Submission](https://devpost.com/software/dco-threat-triage-agent)**
+
+---
+
+## Demo
+
+<p align="center">
+  <img src="demo.gif" alt="DCO Threat Triage Agent — Full Demo" width="800" />
+</p>
+
 ---
 
 ## Problem
@@ -26,6 +36,98 @@
 The agent chains these tools in a **6-step reasoning loop** (Correlate, Enrich, Detect, Forensic Analysis, Score, Report), then generates a structured triage report with MITRE ATT&CK kill chain mapping, severity scoring, and specific containment recommendations.
 
 To prove it works, we built a realistic simulated environment: a **5-stage attack chain** (phishing, PowerShell C2, credential dumping, lateral movement, data exfiltration) buried in **80+ benign noise events**. The agent finds the needle in the haystack — every time.
+
+---
+
+## Agent Builder in Kibana
+
+The agent and all 7 tools are deployed in Elastic Agent Builder and accessible via the Kibana UI:
+
+<p align="center">
+  <img src="screenshots/demo/agent-builder-dco-tools.png" alt="Agent Builder — 7 Tools Wired to DCO Agent" width="800" />
+</p>
+
+<p align="center">
+  <img src="screenshots/demo/agent-builder-chat-ready.png" alt="Agent Builder — Chat Interface Ready" width="800" />
+</p>
+
+---
+
+## Dashboard
+
+The real-time security operations dashboard shows alert statistics, severity distribution, event timeline, and MITRE ATT&CK kill chain visualization — all querying live Elasticsearch data.
+
+<p align="center">
+  <img src="screenshots/demo/dashboard.png" alt="Dashboard — Stats, Kill Chain, Timeline" width="800" />
+</p>
+
+---
+
+## Threat Hunting
+
+Four specialized hunt views powered by ES|QL queries:
+
+### Event Correlation
+Links related alerts by source IP across the full event timeline.
+
+<p align="center">
+  <img src="screenshots/demo/hunt-correlate.png" alt="Hunt — IP Event Correlation" width="800" />
+</p>
+
+### Beaconing Detection
+Identifies periodic C2 callback patterns using time-bucketed aggregation.
+
+<p align="center">
+  <img src="screenshots/demo/hunt-beaconing.png" alt="Hunt — C2 Beaconing Detection" width="800" />
+</p>
+
+### Lateral Movement
+Traces credential use and SMB connections across multiple hosts.
+
+<p align="center">
+  <img src="screenshots/demo/hunt-lateral.png" alt="Hunt — Lateral Movement Detection" width="800" />
+</p>
+
+### Process Chain Analysis
+Reconstructs parent-child process trees to reveal execution chains.
+
+<p align="center">
+  <img src="screenshots/demo/hunt-process.png" alt="Hunt — Process Chain Analysis" width="800" />
+</p>
+
+---
+
+## Alerts & Threat Intel
+
+<p align="center">
+  <img src="screenshots/demo/alerts.png" alt="Alerts — Filterable Alert Table" width="800" />
+</p>
+
+<p align="center">
+  <img src="screenshots/demo/intel.png" alt="Threat Intel — MITRE ATT&CK Mapped IOCs" width="800" />
+</p>
+
+---
+
+## Agent Chat
+
+Send natural language prompts to the DCO Triage Agent. It autonomously selects which tools to call, correlates the results, and returns a structured triage report.
+
+<p align="center">
+  <img src="screenshots/demo/chat.png" alt="Agent Chat — Live Triage Conversation" width="800" />
+</p>
+
+---
+
+## Incidents
+
+Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity scores, and containment recommendations.
+
+<p align="center">
+  <img src="screenshots/demo/incidents.png" alt="Incidents — Agent-Generated Triage Reports" width="800" />
+</p>
+
+---
 
 ## Architecture
 
@@ -63,18 +165,6 @@ To prove it works, we built a realistic simulated environment: a **5-stage attac
    └─────────────────┘ └─────────────┘ └──────────────────┘
 ```
 
-## Demo Video
-
-> [Demo Video on YouTube](https://youtu.be/PLACEHOLDER) — 3-minute walkthrough of the agent performing autonomous triage
-
-## Live Dashboard
-
-> **[https://frontend-drab-xi-56.vercel.app/dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** — deployed on Vercel, querying live Elasticsearch data
-
-## Devpost Submission
-
-> [Devpost Submission](https://devpost.com/software/dco-threat-triage-agent)
-
 ## Tech Stack
 
 | Component | Technology |
@@ -88,58 +178,7 @@ To prove it works, we built a realistic simulated environment: a **5-stage attac
 | Charts | Recharts |
 | Languages | Python 3.11+, TypeScript 5.7 |
 
-## Project Structure
-
-```
-elastic-hackathon/
-├── es_client.py               # Elasticsearch connection factory
-├── create_indices.py          # Index mappings (security-alerts, threat-intel, incident-log)
-├── load_attack_data.py        # 5-stage attack chain + 80 noise events
-├── load_threat_intel.py       # 18 MITRE ATT&CK-mapped IOCs
-├── setup_agent_builder.py     # Agent Builder tools + agent (via Kibana API)
-├── test_agent.py              # End-to-end triage test suite
-├── requirements.txt           # Python dependencies
-├── .env.example               # Template for .env
-└── frontend/                  # Next.js dashboard (see below)
-```
-
-### Frontend Dashboard
-
-A real-time security operations dashboard built with **Next.js 14 + TypeScript + Tailwind CSS** that queries Elasticsearch directly.
-
-```
-frontend/
-├── app/
-│   ├── dashboard/      # Overview: stat cards, severity donut, event timeline, kill chain
-│   ├── alerts/         # Filterable alert table with click-to-inspect detail drawer
-│   ├── hunt/
-│   │   ├── correlate/  # IP event correlation timeline
-│   │   ├── beaconing/  # C2 beacon pattern detection
-│   │   ├── lateral/    # Multi-host auth analysis
-│   │   └── process/    # Parent-child process tree
-│   ├── intel/          # IOC search with MITRE mappings
-│   ├── incidents/      # Agent-generated triage reports
-│   ├── chat/           # Live agent chat interface
-│   └── api/            # 10 API routes proxying to Elasticsearch
-├── components/
-│   ├── dashboard/      # StatCard, EventTimeline, SeverityDonut, KillChainTimeline
-│   ├── hunt/           # CorrelatedTimeline, BeaconingTable, ProcessTree
-│   ├── intel/          # IOCTable
-│   └── ui/             # DataTable, SeverityBadge, MitreBadge, StatusBadge, AlertDrawer, Skeleton
-└── lib/
-    ├── elasticsearch.ts  # ES client (Cloud ID or URL)
-    ├── queries.ts        # ES|QL query templates
-    ├── types.ts          # TypeScript interfaces for 3 ES indices
-    └── utils.ts          # Shared helpers (esqlToRows)
-```
-
-**Key features:**
-- **MITRE ATT&CK Kill Chain Visualization** — horizontal flow showing attack progression through 5+ tactics
-- **Alert Detail Drawer** — click any alert row for a slide-out panel with full ECS field inspection
-- **Agent Chat UI** — send prompts to the DCO Triage Agent via Agent Builder API (falls back to pre-recorded results)
-- **Auto-refresh** — dashboard polls every 30 seconds with visible countdown timer
-- **Connection Status** — live Elasticsearch health indicator in sidebar
-- **Loading Skeletons** — animated placeholders during data fetching
+---
 
 ## Setup
 
@@ -172,9 +211,7 @@ cp .env.example .env
 | `ELASTICSEARCH_URL` | Alt | Direct Elasticsearch URL (if not using Cloud ID) |
 | `KIBANA_URL` | Yes | Kibana URL (for Agent Builder API) |
 
-### Quick Start: Standalone Scripts
-
-You can run each component independently without the autonomous harness:
+### Quick Start
 
 ```bash
 # 1. Verify Elasticsearch connectivity
@@ -211,29 +248,7 @@ The dashboard requires the same Elasticsearch credentials as the backend. Set th
 - `ELASTIC_API_KEY`
 - `KIBANA_URL` (optional, for Agent Chat)
 
-## Elasticsearch Indices
-
-### `security-alerts`
-Simulated security events including:
-- Phishing email delivery with macro-enabled attachments
-- Encoded PowerShell execution with C2 callbacks
-- LSASS credential dumping
-- SMB lateral movement across multiple hosts
-- Data staging and exfiltration preparation
-- 80+ benign noise events (normal logins, web traffic, scheduled tasks)
-
-### `threat-intel`
-Curated IOC database mapped to MITRE ATT&CK techniques, including:
-- Malicious IP addresses, domains, and file hashes
-- ATT&CK technique IDs and descriptions
-- Severity scores and confidence levels
-
-### `incident-log`
-Agent-generated triage reports containing:
-- Correlated event timelines
-- MITRE ATT&CK kill chain mapping
-- Severity assessment scores
-- Recommended containment actions
+---
 
 ## Features We Liked
 
