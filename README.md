@@ -5,10 +5,7 @@
 
 **DCO Threat Triage Agent** is an autonomous AI agent built entirely with **Elastic Agent Builder** that performs first-pass security alert triage — correlating events with ES|QL, hunting for attack patterns, and cross-referencing MITRE ATT&CK-mapped threat intelligence — so SOC analysts can focus on confirmed threats instead of drowning in noise.
 
-**[Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** | **[Devpost Submission](https://devpost.com/software/soc-agent-7z80jq)**
-
-<!-- TODO: Add social post link once published — earns 10% Social Engagement score -->
-<!-- **[Social Post](YOUR_LINK_HERE)** *(shared with @elastic)* -->
+**[Try the Agent](https://frontend-drab-xi-56.vercel.app/chat)** | **[Live Dashboard](https://frontend-drab-xi-56.vercel.app/dashboard)** | **[Devpost Submission](https://devpost.com/software/soc-agent-7z80jq)**
 
 ### Key Results
 
@@ -136,22 +133,23 @@ Each ES|QL tool exposes parameterized queries as agent capabilities. Here's the 
 ```sql
 FROM security-alerts
 | WHERE event.category == "network"
-| WHERE destination.ip IS NOT NULL
+  AND network.direction == "outbound"
+  AND @timestamp >= NOW() - 30 DAYS
 | STATS beacon_count = COUNT(*),
+        total_bytes = SUM(source.bytes),
         first_seen = MIN(@timestamp),
-        last_seen = MAX(@timestamp),
-        total_bytes = SUM(network.bytes)
-    BY source.ip, destination.ip, destination.domain
-| WHERE beacon_count >= 10
+        last_seen = MAX(@timestamp)
+    BY destination.ip, destination.domain, source.ip
+| WHERE beacon_count >= 5
 | EVAL duration_minutes = DATE_DIFF("minutes", first_seen, last_seen)
-| WHERE duration_minutes > 0
-| EVAL avg_interval_seconds = duration_minutes * 60.0 / (beacon_count - 1)
-| WHERE avg_interval_seconds < 600
+| EVAL avg_interval_seconds = CASE(
+        beacon_count > 1, duration_minutes * 60.0 / (beacon_count - 1), 0)
+| WHERE avg_interval_seconds > 0 AND avg_interval_seconds < 600
 | SORT beacon_count DESC
-| LIMIT 50
+| LIMIT 20
 ```
 
-This detected the C2 server at `198.51.100.23` receiving beacons every ~345 seconds — a pattern invisible in raw alert data but unmistakable in aggregation.
+This detected the C2 server at `198.51.100.23` receiving 66 beacons at ~2155-second intervals with 735 MB transferred — a pattern invisible in raw alert data but unmistakable in aggregation.
 
 ---
 
