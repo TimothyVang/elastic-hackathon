@@ -270,6 +270,105 @@ Agent-generated triage reports with MITRE ATT&CK kill chain mapping, severity sc
 - **Workflow tool wiring** — Creating workflows programmatically requires a separate API (`POST /api/workflows`) and the workflow tool needs the UUID, not the name. The Workflow type was the most complex to set up but also the most rewarding — it completes the triage loop by auto-creating incident records.
 - **Serverless ES|QL time windows** — ES|QL queries with `NOW() - 24 HOURS` windows require fresh data. We solved this with `load_attack_data.py` generating timestamps relative to `now - 12h`, so the attack chain is always within the query window — a pattern useful for any Agent Builder demo with time-series data.
 
+## Autonomous Agent Orchestration
+
+The DCO Triage Agent isn't just a manually-configured tool — it can **build itself**. We implemented a two-agent orchestration framework adapted from [coleam00/Linear-Coding-Agent-Harness](https://github.com/coleam00/Linear-Coding-Agent-Harness), following Anthropic's [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) pattern.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  autonomous_agent_demo.py                       │
+│                                                                 │
+│  ┌──────────────┐    .elastic_project.json    ┌──────────────┐  │
+│  │  Initializer  │──────── marker ──────────▶│    Builder    │  │
+│  │    Agent      │                            │    Agent      │  │
+│  │              │                            │   (looped)    │  │
+│  │ • Bootstrap  │                            │ • Read task   │  │
+│  │   ES cluster │                            │   tracker     │  │
+│  │ • Create     │                            │ • Pick next   │  │
+│  │   indices    │                            │   failing     │  │
+│  │ • Load data  │                            │   task        │  │
+│  │ • Scaffold   │                            │ • Implement   │  │
+│  │   Agent      │                            │ • Test        │  │
+│  │   Builder    │                            │ • Mark pass   │  │
+│  └──────────────┘                            │ • Repeat      │  │
+│                                              └───────┬──────┘  │
+│                                                      │         │
+│                                    task_tracker.json  │         │
+│                                    ┌─────────────────┘         │
+│                                    ▼                            │
+│                            All tasks passing?                   │
+│                            ├─ No  → next iteration              │
+│                            └─ Yes → done ✓                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### How It Works
+
+1. **Initializer Agent** (`agent.py:run_initializer_session`) — Runs once to bootstrap the entire environment: creates Elasticsearch indices, loads attack chain data and threat intel, scaffolds the Agent Builder configuration via Kibana REST API, and writes `.elastic_project.json` as a completion marker.
+
+2. **Builder Agent** (`agent.py:run_builder_session`) — Runs in a loop, each iteration reading `task_tracker.json` to find the next failing task, implementing the fix, running tests, and marking the task as passing. Continues until all tasks pass or `--max-iterations` is reached.
+
+3. **Session Handoff** — State persists across sessions via three artifacts:
+   - `.elastic_project.json` — initialization completion marker
+   - `task_tracker.json` — feature checklist with pass/fail status
+   - `CLAUDE.md` — persistent context that orients each new agent session
+
+4. **Crash Resilience** — Each iteration picks up from the last committed state. A fresh `ClaudeSDKClient` is created per iteration to prevent context window exhaustion, enabling **5+ hours of autonomous operation**.
+
+### Security
+
+Every bash command executed by either agent passes through a `PreToolUse` hook (`security.py`) that validates against an allowlist before execution. Blocked patterns include fork bombs, `rm -rf /`, `sudo`, and other destructive operations — critical when an AI agent runs autonomously for hours.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `autonomous_agent_demo.py` | Entry point — orchestrates both agents |
+| `agent.py` | Initializer and Builder session runners |
+| `client.py` | Builds `ClaudeSDKClient` with security hooks |
+| `security.py` | Allowlist-based command validation |
+| `progress.py` | Real-time progress tracking and reporting |
+
+```bash
+# Full autonomous run (init + builder iterations)
+python autonomous_agent_demo.py
+
+# Resume building (skip initialization)
+python autonomous_agent_demo.py --skip-init
+
+# Limit builder iterations
+python autonomous_agent_demo.py --max-iterations 5
+```
+
+## Scaling & Future Work
+
+### Elastic Infrastructure Scaling
+
+- **Data Streams** — Replace static indices with auto-rollover time-series data streams for continuous alert ingestion
+- **ILM (Hot/Warm/Cold/Frozen)** — Automated data tiering with 50–90% storage reduction via searchable snapshots
+- **Elastic Agent + Fleet** — Real-time endpoint telemetry collection at 10,000+ agent scale
+- **ES|QL Detection Rules** — Promote agent ES|QL queries into continuous automated detection rules running 24/7
+- **Cross-Cluster Search** — Federated queries across multi-site SOC deployments for global threat visibility
+
+### Advanced Threat Detection
+
+- **Jitter-tolerant beaconing** — Statistical models (mean + standard deviation) to detect C2 beacons with timing randomization, beyond fixed-interval thresholds
+- **DGA detection** — Shannon entropy scoring + deep learning classifiers to identify algorithmically-generated malicious domains
+- **JA4+ TLS fingerprinting** — Identify C2 implants by TLS handshake signatures, even when domains and IPs rotate
+
+### Intelligence & Response
+
+- **STIX/TAXII feed ingestion** — Live threat intel feeds replacing the static IOC index for real-time enrichment
+- **OpenCTI / MISP integration** — Full IOC lifecycle management with automated enrichment pipelines
+- **IOC confidence decay** — Type-specific half-life models (IPs: 90 days, hashes: 1 year) to age out stale indicators
+- **SOAR integration** — Elastic native response actions (host isolation, process kill) + Cortex XSOAR playbooks for automated containment
+
+### ML-Powered Triage
+
+- **Analyst feedback loops** — Reinforcement learning on true-positive/false-positive dispositions to improve severity scoring over time
+- **Entity behavioral baselines** — Per-host and per-user anomaly detection (UEBA) to identify deviations from normal activity patterns
+- **ATT&CK coverage gap analysis** — Automated MITRE Navigator heatmaps via DeTT&CT to identify detection blind spots
+
 ---
 
 <details>
